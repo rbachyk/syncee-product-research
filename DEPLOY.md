@@ -106,6 +106,14 @@ The **Control** tab (`/control`) runs scan and enrich for you — no shell neede
 
 - **Download (scan)** — optional category, starts a headless scan into Postgres.
 - **Enrich** — optional chunk size / collection / re-enrich; skips already-done products.
+- **Score** — run supplier scoring, then product scoring (which also classifies into
+  collections), each as its own job.
+- **Select assortment** — build the initial 18–24 batch or the 4-product new-arrivals batch.
+- **Publish** — run publish-prep (SEO + generative images), then push to Shopify (dry-run
+  unless you tick Apply).
+- **Export CSV** — download products / suppliers / candidates straight from Postgres.
+- **Check session** — verify the saved Syncee session before scanning.
+- **Runs** tab — scan-run history (status, completeness, counts, resumable).
 - **Status** — live catalogue totals (products / suppliers / enriched / scored), an
   enrichment progress bar, per-collection and review-status breakdowns, and the latest scan-run
   summary.

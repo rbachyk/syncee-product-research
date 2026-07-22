@@ -282,3 +282,41 @@ def enrich_argv(
     if reenrich:
         argv += ["--reenrich"]
     return argv
+
+
+def score_argv(target: str) -> list[str] | None:
+    """`score suppliers` (gates + weighted score) or `score products` (gates + margin +
+    score + classification). Returns None for an unknown target."""
+    if target not in ("suppliers", "products"):
+        return None
+    return ["syncee-scanner", "score", target]
+
+
+def select_argv(target: str) -> list[str] | None:
+    """`select initial` (18–24 assortment batch) or `select new-arrivals` (4-product batch)."""
+    if target not in ("initial", "new-arrivals"):
+        return None
+    return ["syncee-scanner", "select", target]
+
+
+def prep_argv(limit: int | None = None) -> list[str]:
+    """`shopify prep` — publish-prep (normalize + SEO copy + generative image)."""
+    argv = ["syncee-scanner", "shopify", "prep"]
+    if limit:
+        argv += ["--limit", str(limit)]
+    return argv
+
+
+def push_argv(*, apply: bool = False, key: str | None = None) -> list[str]:
+    """`shopify push` — dry-run by default; --apply writes to Shopify."""
+    argv = ["syncee-scanner", "shopify", "push"]
+    if apply:
+        argv += ["--apply"]
+    if key:
+        argv += ["--key", key]
+    return argv
+
+
+def validate_argv() -> list[str]:
+    """`auth validate` — check the saved Syncee session is still usable."""
+    return ["syncee-scanner", "auth", "validate"]

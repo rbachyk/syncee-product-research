@@ -11,6 +11,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
+from ..models import DecisionValue
 from ..postgres.persistence import SCHEMA
 from . import auth, jobs
 
@@ -77,6 +78,8 @@ REVIEW_ACTIONS = {
     "reject": "Manually Rejected",
     "shortlist": "Shortlisted",  # send back to review pool
 }
+# Approve/reject are audited manual decisions (§14) — mapped to the shared CLI override path.
+_DECISIONS = {"approve": DecisionValue.APPROVE, "reject": DecisionValue.REJECT}
 _PAGE_LIMIT = 500
 
 # Sort key → (label, SQL order expression).
@@ -184,16 +187,47 @@ def gallery(
     })
 
 
-@app.post("/product/{pid}/review")
-def review(pid: int, action: str = Form(...), redirect: str = Form("/")):
-    """Approve / reject / send-back a product (writes Review Status)."""
+def _actor(request: Request) -> str:
+    """Who is making a decision — the logged-in user, for the audit trail."""
+    if not auth.auth_enabled():
+        return "dashboard"
+    user = auth.verify_token(request.cookies.get(auth.COOKIE_NAME))
+    return f"dashboard:{user}" if user else "dashboard"
+
+
+def _apply_review(ids: list[int], action: str, actor: str) -> None:
+    """Approve/reject go through the SAME audited path as the CLI (`scoring.overrides`),
+    writing a Manual Decisions row per product; shortlist is a plain status change."""
+    if not ids:
+        return
+    decision = _DECISIONS.get(action)
+    if decision is not None:
+        from ..postgres.persistence import PostgresPersistence
+        from ..scoring.overrides import decide_product
+
+        pg = PostgresPersistence(_dsn())
+        try:
+            with pg._conn.cursor() as cur:
+                cur.execute("SELECT id, data FROM products WHERE id = ANY(%s)", (ids,))
+                rows = [{"id": r[0], **r[1]} for r in cur.fetchall()]
+            for row in rows:
+                decide_product(pg, row, decision, decided_by=actor)
+        finally:
+            pg.close()
+        return
     new_status = REVIEW_ACTIONS.get(action)
     if new_status:
         with _conn() as conn, conn.cursor() as cur:
             cur.execute(
-                "UPDATE products SET data = data || %s WHERE id = %s",
-                (psycopg.types.json.Jsonb({"Review Status": new_status}), pid),
+                "UPDATE products SET data = data || %s WHERE id = ANY(%s)",
+                (psycopg.types.json.Jsonb({"Review Status": new_status}), ids),
             )
+
+
+@app.post("/product/{pid}/review")
+def review(request: Request, pid: int, action: str = Form(...), redirect: str = Form("/")):
+    """Approve / reject (audited) / shortlist a single product."""
+    _apply_review([pid], action, _actor(request))
     return RedirectResponse(redirect or "/", status_code=303)
 
 
@@ -213,16 +247,10 @@ _PID_LIST = Form(())  # module-level singleton (avoids a call in the default →
 
 
 @app.post("/products/bulk")
-def bulk_review(action: str = Form(...), pid: list[int] = _PID_LIST,
+def bulk_review(request: Request, action: str = Form(...), pid: list[int] = _PID_LIST,
                 redirect: str = Form("/")):
-    """Approve / reject / shortlist many products at once."""
-    new_status = REVIEW_ACTIONS.get(action)
-    if new_status and pid:
-        with _conn() as conn, conn.cursor() as cur:
-            cur.execute(
-                "UPDATE products SET data = data || %s WHERE id = ANY(%s)",
-                (psycopg.types.json.Jsonb({"Review Status": new_status}), pid),
-            )
+    """Approve / reject (audited) / shortlist many products at once."""
+    _apply_review(pid, action, _actor(request))
     return RedirectResponse(auth.safe_next(redirect), status_code=303)
 
 
@@ -365,6 +393,53 @@ def control(request: Request):
     })
 
 
+@app.get("/export/{what}")
+def export_csv(what: str):
+    """Stream a CSV export (suppliers / products / candidates) generated from Postgres."""
+    import shutil
+    import tempfile
+
+    from starlette.background import BackgroundTask
+
+    from ..export import service as export_service
+    from ..postgres.persistence import PostgresPersistence
+
+    exporters = {
+        "suppliers": export_service.export_suppliers,
+        "products": export_service.export_products,
+        "candidates": export_service.export_candidates,
+    }
+    fn = exporters.get(what)
+    if not fn:
+        return Response(status_code=404)
+    tmp = tempfile.mkdtemp(prefix="rbexport-")
+    pg = PostgresPersistence(_dsn())
+    try:
+        path = fn(pg, out_dir=tmp)[0]
+    finally:
+        pg.close()
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        path, media_type="text/csv", filename=path.name,
+        background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
+    )
+
+
+@app.get("/runs", response_class=HTMLResponse)
+def runs_list(request: Request):
+    """Scan-run history (spec §12)."""
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT run_id, data, checkpoint IS NOT NULL "
+            "FROM scan_runs ORDER BY id DESC LIMIT 100"
+        )
+        rows = cur.fetchall()
+    runs = [{"run_id": rid, "resumable": hc, **(data or {})} for rid, data, hc in rows]
+    return _TEMPLATES.TemplateResponse(request, "runs.html", {
+        "runs": runs, "authed": auth.auth_enabled(),
+    })
+
+
 @app.post("/jobs/scan")
 def start_scan(category: str = Form("")):
     _, err = jobs.start_job("scan", jobs.scan_argv(category.strip() or None),
@@ -383,6 +458,50 @@ def start_enrich(limit: str = Form(""), collection: str = Form(""),
     params = {"limit": lim, "collection": collection.strip(), "reenrich": bool(reenrich)}
     _, err = jobs.start_job("enrich", argv, params)
     return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
+
+
+@app.post("/jobs/score")
+def start_score(target: str = Form(...)):
+    """Score suppliers or products (target = 'suppliers' | 'products')."""
+    argv = jobs.score_argv(target)
+    if argv is None:
+        return RedirectResponse("/control?error=Unknown+score+target", status_code=303)
+    _, err = jobs.start_job(f"score-{target}", argv, {"target": target})
+    return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
+
+
+def _launch(kind: str, argv: list[str] | None, params: dict) -> RedirectResponse:
+    if argv is None:
+        return RedirectResponse("/control?error=Invalid+request", status_code=303)
+    _, err = jobs.start_job(kind, argv, params)
+    return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
+
+
+@app.post("/jobs/select")
+def start_select(target: str = Form(...)):
+    """Build the assortment: target = 'initial' | 'new-arrivals'."""
+    return _launch(f"select-{target}", jobs.select_argv(target), {"target": target})
+
+
+@app.post("/jobs/prep")
+def start_prep(limit: str = Form("")):
+    """Publish-prep the assortment (SEO copy + generative images via OpenRouter)."""
+    lim = int(limit) if limit.strip().isdigit() else None
+    return _launch("publish-prep", jobs.prep_argv(lim), {"limit": lim})
+
+
+@app.post("/jobs/push")
+def start_push(apply: str = Form(""), key: str = Form("")):
+    """Push to Shopify — dry-run unless 'apply' is checked."""
+    do_apply = bool(apply)
+    argv = jobs.push_argv(apply=do_apply, key=key.strip() or None)
+    return _launch("shopify-push", argv, {"apply": do_apply, "key": key.strip()})
+
+
+@app.post("/jobs/validate")
+def start_validate():
+    """Check the saved Syncee session is still valid."""
+    return _launch("auth-validate", jobs.validate_argv(), {})
 
 
 _JOB_ACTIONS = {"pause": jobs.pause_job, "resume": jobs.resume_job, "cancel": jobs.cancel_job}

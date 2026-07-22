@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RB Home — Scan runs</title>
+<style>
+  body { margin:0; font:15px/1.45 system-ui,sans-serif; background:#f6f6f4; color:#222; }
+  .nav { background:#222; color:#fff; padding:8px 20px; display:flex; gap:18px; align-items:center; }
+  .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; } .nav a.on { color:#fff; font-weight:600; }
+  .nav .sp { margin-left:auto; }
+  .wrap { max-width:1080px; margin:0 auto; padding:20px; }
+  h1 { font-size:18px; }
+  .card { background:#fff; border:1px solid #e3e3df; border-radius:10px; padding:6px 10px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:7px 9px; border-bottom:1px solid #eee; white-space:nowrap; }
+  th { color:#889; font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .s-Completed, .s-Complete { color:#1c8a4a; } .s-Running { color:#2d6cdf; }
+  .s-Failed { color:#c0392b; } .s-Partial, .s-Unverified { color:#b5652a; }
+  .rid { font:12px ui-monospace,Menlo,monospace; color:#556; }
+  .muted { color:#889; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">Products</a><a href="/control">Control</a><a href="/runs" class="on">Runs</a>
+  <span class="sp"></span>
+  {% if authed %}<a href="/logout">Log out</a>{% endif %}
+</div>
+<div class="wrap">
+  <h1>Scan runs</h1>
+  <div class="card">
+    {% if runs %}
+    <div style="overflow-x:auto">
+    <table>
+      <tr>
+        <th>Run</th><th>Type</th><th>Status</th><th>Completeness</th>
+        <th class="num">Seen</th><th class="num">New</th><th class="num">Changed</th>
+        <th class="num">Failed</th><th class="num">Suppliers</th><th>Resumable</th>
+      </tr>
+      {% for r in runs %}
+      <tr>
+        <td class="rid">{{ r.run_id }}</td>
+        <td>{{ r.get('Run Type', '—') }}{% if r.get('Category') %}<br><span class="muted">{{ r.get('Category') }}</span>{% endif %}</td>
+        <td class="s-{{ r.get('Status','') }}">{{ r.get('Status', '—') }}</td>
+        <td class="s-{{ r.get('Completeness Status','') }}">{{ r.get('Completeness Status', '—') }}</td>
+        <td class="num">{{ r.get('Products Seen', r.get('Products Discovered', '—')) }}</td>
+        <td class="num">{{ r.get('New Products', '—') }}</td>
+        <td class="num">{{ r.get('Changed Products', '—') }}</td>
+        <td class="num">{{ r.get('Failed Products', '—') }}</td>
+        <td class="num">{{ r.get('Suppliers Discovered', '—') }}</td>
+        <td>{{ 'yes' if r.resumable else '' }}</td>
+      </tr>
+      {% if r.get('Error Summary') %}<tr><td></td><td colspan="9" class="muted">⚠ {{ r.get('Error Summary') }}</td></tr>{% endif %}
+      {% endfor %}
+    </table>
+    </div>
+    {% else %}<p class="muted" style="padding:20px">No scan runs yet.</p>{% endif %}
+  </div>
+</div>
+</body>
+</html>

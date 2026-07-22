@@ -92,8 +92,24 @@ def apply_product_decision(
     note: str | None = None,
     decided_by: str = "cli",
 ) -> str:
-    """Approve or reject a product manually + audit (spec §14)."""
+    """Approve or reject a product manually + audit, by Product Key (spec §14)."""
     row = _find(persistence.iter_products(), "Product Key", product_key)
+    return decide_product(persistence, row, decision, note=note, decided_by=decided_by)
+
+
+def decide_product(
+    persistence,
+    row: dict,
+    decision: DecisionValue,
+    *,
+    note: str | None = None,
+    decided_by: str = "cli",
+) -> str:
+    """Approve or reject an already-loaded product row + write the audit trail (spec §14).
+
+    Shared by the CLI (``product approve/reject``) and the dashboard so both apply the exact
+    same status change *and* immutable Manual Decisions record.
+    """
     previous = row.get("Review Status", "")
     new_status = (
         ProductReviewStatus.APPROVED

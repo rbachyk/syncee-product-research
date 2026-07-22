@@ -24,6 +24,8 @@
            font:inherit; font-weight:600; cursor:pointer; }
   button.g { background:#1c8a4a; }
   button:disabled { background:#bbb; cursor:not-allowed; }
+  a.dl { display:inline-block; padding:8px 16px; border-radius:7px; background:#2d6cdf; color:#fff;
+         text-decoration:none; font-size:14px; font-weight:600; }
   .banner { background:#fff4e5; border:1px solid #f0d9b5; color:#8a5a10; padding:8px 12px;
             border-radius:8px; margin:0 0 14px; font-size:14px; }
   .active { background:#eef5ff; border:1px solid #cfe0fb; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
@@ -54,6 +56,7 @@
 <div class="nav">
   <a href="/">Products</a>
   <a href="/control" class="on">Control</a>
+  <a href="/runs">Runs</a>
   <span class="sp"></span>
   {% if authed %}<a href="/logout">Log out</a>{% endif %}
 </div>
@@ -94,6 +97,7 @@
         <input name="category" placeholder="e.g. Home &amp; Kitchen" style="min-width:220px">
       </label>
       <button type="submit" {{ 'disabled' if active }}>Start scan</button>
+      <button type="submit" formaction="/jobs/validate" style="background:#666" {{ 'disabled' if active }}>Check session</button>
     </form>
   </div>
 
@@ -116,6 +120,71 @@
       </label>
       <button type="submit" class="g" {{ 'disabled' if active }}>Start enrich</button>
     </form>
+  </div>
+
+  <!-- Score -->
+  <div class="card full">
+    <h2>Score</h2>
+    <p class="muted" style="margin-top:0">Run after enriching. Suppliers first (gates + score), then products (gates + margin + score + classification into collections).</p>
+    <div class="row">
+      <form method="post" action="/jobs/score">
+        <input type="hidden" name="target" value="suppliers">
+        <button type="submit" {{ 'disabled' if active }}>Score suppliers</button>
+      </form>
+      <form method="post" action="/jobs/score">
+        <input type="hidden" name="target" value="products">
+        <button type="submit" class="g" {{ 'disabled' if active }}>Score products</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Select -->
+  <div class="card">
+    <h2>Select assortment</h2>
+    <p class="muted" style="margin-top:0">Build a curated candidate batch (diversity + per-supplier cap) from scored, reviewed products.</p>
+    <div class="row">
+      <form method="post" action="/jobs/select">
+        <input type="hidden" name="target" value="initial">
+        <button type="submit" {{ 'disabled' if active }}>Initial (18–24)</button>
+      </form>
+      <form method="post" action="/jobs/select">
+        <input type="hidden" name="target" value="new-arrivals">
+        <button type="submit" {{ 'disabled' if active }}>New arrivals (4)</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Publish -->
+  <div class="card">
+    <h2>Publish</h2>
+    <p class="muted" style="margin-top:0">Prep the assortment (SEO + generative images), then push to Shopify. Push is a dry-run unless you tick Apply.</p>
+    <div class="row" style="margin-bottom:10px">
+      <form method="post" action="/jobs/prep" class="row">
+        <label class="f">Limit
+          <input name="limit" type="number" min="1" placeholder="all" style="width:90px">
+        </label>
+        <button type="submit" {{ 'disabled' if active }}>Run publish-prep</button>
+      </form>
+    </div>
+    <div class="row">
+      <form method="post" action="/jobs/push" class="row">
+        <label class="f" style="flex-direction:row; align-items:center; gap:5px;">
+          <input type="checkbox" name="apply" value="1"> Apply (write to Shopify)
+        </label>
+        <button type="submit" class="g" {{ 'disabled' if active }}>Push to Shopify</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="card">
+    <h2>Export CSV</h2>
+    <p class="muted" style="margin-top:0">Download the current data straight from Postgres.</p>
+    <div class="row">
+      <a class="dl" href="/export/products">Products</a>
+      <a class="dl" href="/export/suppliers">Suppliers</a>
+      <a class="dl" href="/export/candidates">Candidates</a>
+    </div>
   </div>
 
   <!-- Catalogue status -->
