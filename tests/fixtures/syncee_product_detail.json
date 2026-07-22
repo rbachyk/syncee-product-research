@@ -1,0 +1,66 @@
+{
+  "ID": "1540862_89947_7377516691511",
+  "TASK_ID": 89947,
+  "USER_ID": "1540862",
+  "TITLE": "7-Piece Natural Teak Wooden Spoons for Cooking Set",
+  "DESCRIPTION": "<p><span style=\"font-size: 0.875rem;\">Elevate your culinary experience with our 7-piece teak wooden spoon set, perfect for non-stick cooking and comfortable handling.</span><br></p>\n<ol><li>Material: Teak Wood</li><li>Quantity: 7 pieces</li></ol>",
+  "IMAGES": [
+    "https://cdn.shopify.com/s/files/1/0615/2850/6423/files/0c02662e4b12b3de7956fc47ca6ebff8-Photoroom.png?v=1764159052",
+    "https://cdn.shopify.com/s/files/1/0615/2850/6423/files/a5a0a7b11c4462a17d75a818270d97c8.webp?v=1764159052"
+  ],
+  "BRAND": "CAN",
+  "TAGS": ["PRIMEBAY"],
+  "VARIANTS": [
+    {
+      "RETAIL_PRICE": 127.99,
+      "DEFAULT_CURRENCY_PRICE": 71.4286592,
+      "PRICE": 102.392,
+      "QTY": "200",
+      "UPC": "9362547086956",
+      "SKU": "PBVG11048",
+      "VARIANT_ID": "42000935321655",
+      "V_IMAGES": [],
+      "MARGIN": 25
+    }
+  ],
+  "SETTINGS": {
+    "possibleMargin": "0",
+    "language": "en",
+    "shipping_type": "both",
+    "approveNeeded": false,
+    "showPrices": true,
+    "warehouseLocation": "Australia",
+    "premium": false
+  },
+  "SUPPLIER": {
+    "contactEmail": "info@primebay.com.au",
+    "website": "https://primebay.com.au",
+    "companyName": "Primebay",
+    "isAutomated": true,
+    "shipsTo": ["Austria", "Belgium", "Germany", "Spain", "France", "Ireland", "Italy",
+                "Netherlands", "Portugal", "United States", "Australia"],
+    "paymentCurrency": "AUD",
+    "mainWarehouseLocation": {"lat": -25.2744, "lon": 133.775}
+  },
+  "PUBLISHED": ["shopify", "woocommerce"],
+  "SOURCE_ID": "7377516691511",
+  "IS_HIDDEN": false,
+  "VISIBILITY": true,
+  "LAST_MODIFIED": "2026-07-20 03:47:01",
+  "CREATED": "2026-06-16 12:20:21",
+  "SHIPPING": [
+    {
+      "shippingCost": 0,
+      "minShippingDays": 8,
+      "locations": ["AT", "BE", "DE", "ES", "FR", "IE", "IT", "NL", "PT", "US"],
+      "maxShippingDays": 14,
+      "additionalCost": 0
+    }
+  ],
+  "CATEGORIES": [{"id": 977, "categoryName": [{"name": "Kitchen & Dining", "languageCode": "en"}]}],
+  "SYNCEE_CATEGORY": [977, 977],
+  "_id": "mM5g0J4B4cLMfcohIZkP",
+  "CATEGORY": "Kitchen Tools & Utensils",
+  "ORDER_COUNT": "0",
+  "PRODUCT_CLICK_COUNT": "12"
+}

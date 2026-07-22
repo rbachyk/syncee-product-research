@@ -1,0 +1,38 @@
+# Syncee Scanner — scoring configuration (spec §20, §24).
+# Scoring logic lives in code + this file only, never in Baserow formulas (spec §5.5).
+# Weights within each group must sum to 100.
+
+supplier_scoring:
+  version: "supplier-v1"
+  reject_below: 60
+  manual_review_from: 60
+  approve_from: 75
+  weights:
+    market_coverage: 20
+    shipping_speed: 20
+    dispatch_proximity: 15
+    data_completeness: 10
+    shipping_policy: 10
+    return_policy: 10
+    rating: 5
+    catalog_depth: 5
+    approval_friction: 5
+
+product_scoring:
+  # v2: calibrated to real Syncee data (target-margin pricing compresses scores ~55-73).
+  version: "product-v2"
+  reject_below: 55
+  manual_review_from: 55
+  # Relaxed 66→62 to widen the thin Practical Finds durable pool to a full 10 (§26). Products
+  # 62–66 still lose to higher-scored ones in selection; risk-flagged/consumable items remain
+  # gated out regardless of this cutoff.
+  shortlist_from: 62
+  weights:
+    problem_solved: 20
+    margin: 20
+    shipping: 15
+    content_potential: 15
+    differentiation: 10
+    return_risk: 10
+    data_quality: 5
+    supplier_strength: 5

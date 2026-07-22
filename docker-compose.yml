@@ -1,0 +1,79 @@
+# RB Home Syncee pipeline — self-contained stack for a VPS.
+#
+#   docker compose up -d                 # start Postgres + dashboard
+#   docker compose run --rm scanner scan full --limit 100
+#   docker compose logs -f dashboard
+#
+# The dashboard is on http://<vps>:8000 (put it behind a reverse proxy / auth).
+# All secrets come from .env (see .env.example) — never bake them into the image.
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-rbhome}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rbhome}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No published port by default — only the app containers reach it over the
+    # compose network. Uncomment to inspect from the host:
+    # ports: ["5433:5432"]
+
+  dashboard:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-rbhome}
+      # Login: set DASHBOARD_PASSWORD to enforce sign-in (unset = open, e.g. behind a proxy).
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-admin}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
+      DASHBOARD_SECRET: ${DASHBOARD_SECRET:-}
+      DASHBOARD_COOKIE_SECURE: ${DASHBOARD_COOKIE_SECURE:-}
+      # The dashboard launches scan/enrich jobs (via the CLI), so it needs the scanner's env.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      SHOPIFY_STORE_DOMAIN: ${SHOPIFY_STORE_DOMAIN:-}
+      SHOPIFY_CLIENT_ID: ${SHOPIFY_CLIENT_ID:-}
+      SHOPIFY_CLIENT_SECRET: ${SHOPIFY_CLIENT_SECRET:-}
+      SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
+    volumes:
+      - ./data:/app/data          # Syncee storage_state.json (auth session for scans)
+      - ./exports:/app/exports
+      - ./artifacts:/app/artifacts
+    ports:
+      - "${DASHBOARD_PORT:-8000}:8000"
+
+  # One-shot CLI runner: `docker compose run --rm scanner <args>`.
+  # Shares the same image, DB, and env; mounts host dirs for auth state,
+  # exports, and debug artifacts so they survive container restarts.
+  scanner:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-rbhome}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      SHOPIFY_STORE_DOMAIN: ${SHOPIFY_STORE_DOMAIN:-}
+      SHOPIFY_CLIENT_ID: ${SHOPIFY_CLIENT_ID:-}
+      SHOPIFY_CLIENT_SECRET: ${SHOPIFY_CLIENT_SECRET:-}
+      SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
+    volumes:
+      - ./data:/app/data          # Syncee storage_state.json (auth session)
+      - ./exports:/app/exports
+      - ./artifacts:/app/artifacts
+    entrypoint: ["syncee-scanner"]
+    # No default command — you always pass one, e.g. `scan full --limit 100`.
+    profiles: ["cli"]             # kept out of `up`; only runs on explicit `run`
+
+volumes:
+  pgdata:

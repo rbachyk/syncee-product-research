@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RB Home — Job {{ job.id }}</title>
+{% if job.status in ['running', 'paused', 'cancelling'] %}<meta http-equiv="refresh" content="4">{% endif %}
+<style>
+  body { margin:0; font:15px/1.45 system-ui,sans-serif; background:#f6f6f4; color:#222; }
+  .nav { background:#222; color:#fff; padding:8px 20px; display:flex; gap:18px; align-items:center; }
+  .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; }
+  .nav .sp { margin-left:auto; }
+  .wrap { max-width:960px; margin:0 auto; padding:20px; }
+  h1 { font-size:18px; }
+  .s-succeeded { color:#1c8a4a; } .s-failed { color:#c0392b; } .s-running { color:#2d6cdf; }
+  .s-paused { color:#b5652a; } .s-cancelling { color:#c0392b; } .s-cancelled { color:#888; }
+  .jbtn { padding:5px 12px; border:0; border-radius:6px; font-size:13px; cursor:pointer; color:#fff; }
+  .jbtn.pause { background:#b5652a; } .jbtn.resume { background:#1c8a4a; } .jbtn.cancel { background:#c0392b; }
+  form.inline { display:inline; margin-right:6px; }
+  .muted { color:#889; font-size:13px; }
+  pre { background:#111; color:#d6e2cf; padding:16px; border-radius:8px; overflow:auto;
+        font:12px/1.5 ui-monospace,Menlo,monospace; max-height:70vh; white-space:pre-wrap; word-break:break-word; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">Products</a><a href="/control">Control</a>
+  <span class="sp"></span>
+</div>
+<div class="wrap">
+  <h1>Job {{ job.id }} · {{ job.kind }}
+    <span class="s-{{ job.status }}">— {{ job.status }}</span></h1>
+  <p class="muted">
+    params: {{ job.params }} · pid {{ job.pid or '—' }} ·
+    started {{ job.started_at.strftime('%Y-%m-%d %H:%M:%S') if job.started_at else '?' }}
+    {% if job.finished_at %} · finished {{ job.finished_at.strftime('%H:%M:%S') }}{% endif %}
+    {% if job.status in ['running', 'paused', 'cancelling'] %} · <em>auto-refreshing…</em>{% endif %}
+  </p>
+  {% set rdir = '/jobs/' ~ job.id %}
+  {% if job.status in ['running', 'paused', 'cancelling'] %}
+  <p>
+    {% if job.status == 'running' %}
+    <form class="inline" method="post" action="/jobs/{{ job.id }}/pause"><input type="hidden" name="redirect" value="{{ rdir }}"><button class="jbtn pause">Pause</button></form>
+    {% elif job.status == 'paused' %}
+    <form class="inline" method="post" action="/jobs/{{ job.id }}/resume"><input type="hidden" name="redirect" value="{{ rdir }}"><button class="jbtn resume">Resume</button></form>
+    {% endif %}
+    <form class="inline" method="post" action="/jobs/{{ job.id }}/cancel"><input type="hidden" name="redirect" value="{{ rdir }}"><button class="jbtn cancel">{{ 'Force kill' if job.status == 'cancelling' else 'Cancel' }}</button></form>
+  </p>
+  {% endif %}
+  <pre>{{ job.log or '(no output yet)' }}</pre>
+  <p><a href="/control">← back to control</a></p>
+</div>
+</body>
+</html>

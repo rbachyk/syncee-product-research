@@ -1,0 +1,127 @@
+# Syncee response → canonical raw field mapping (spec §5.4, §8.4).
+#
+# CONFIRMED from discovery (2026-07-20). Product list API:
+#   POST https://syncee-gateway.syncee.com/syncee-product-service/api/v2/products/search
+#
+# IMPORTANT — this endpoint differs from the current cursor-based transport in two ways that
+# still need code support before a live scan works (see notes at the bottom):
+#   1. Pagination is OFFSET-based via the POST body ("from"/"size"), not a response cursor.
+#   2. It's a cross-origin gateway call that needs the app's auth (Bearer token in
+#      localStorage), so the transport must run the fetch in the page context or inject the token.
+#
+# Paths under product:/supplier: are resolved against one object in the `result` array.
+# Numeric indices are supported (e.g. VARIANTS.0.PRICE).
+
+list:
+  products_path: "result"
+  mode: "offset"
+  endpoint_template: "https://syncee-gateway.syncee.com/syncee-product-service/api/v2/products/search"
+  method: "POST"
+  page_size: 100
+  total_path: "total"
+  next_cursor_path: null
+  has_next_path: null
+  # Product-detail endpoint (GET), {id} = the product's ID. Returns the full product with
+  # description, real SHIPPING, stock QTY, CATEGORY, etc. Used to enrich shortlisted candidates.
+  detail_endpoint_template: "https://syncee-gateway.syncee.com/syncee-product-service/api/v1/products/{id}"
+  # Scan these Home & Garden subcategories, in turn (overrides request_template.category):
+  #   979 = Eco-home (638), 1209 = Home organization (1,496), 977 = Kitchen & Dining (35,571).
+  # Home & Garden subcategories to scan. Kitchen/Practical: 977 Kitchen & Dining, 979 Eco-home,
+  # 1209 Home organization. Home Comfort sources: 973 Home Textiles, 966 Lighting,
+  # 1160 Home Fragrances, 972 Mirrors, 978 Other Decoration Items. Set to [] for all of 205.
+  categories: [979, 1209, 973, 966, 1160, 972, 978, 977]
+  # Cap products scanned per category so the pool is balanced across very different sizes
+  # (Eco-home 638, Home org 1,496, Kitchen 35,571). 0 = unlimited.
+  # Cap per subcategory (8 of them now) to keep the pool manageable while sampling each well.
+  per_category_limit: 1200
+  # POST body sent each page; `from`/`size` (and `category`) are injected per page. Values
+  # below are ACCOUNT-SPECIFIC (captured from rb.commerce.home): userId, countryCode.
+  request_template:
+    userId: "1603865"
+    category: 205
+    countryCode: "IE"
+    searchType: "HYBRID"
+    isHidden: false
+    visibility: true
+    showHidden: false
+    queryFilter:
+      - - key: "VARIANTS.QTY"
+          condition: ">"
+          values: [0]
+        - "or"
+        - key: "VARIANTS.QTY"
+          condition: "not_exists"
+          values: []
+      - "and"
+      - - key: "VISIBILITY"
+          condition: "equals"
+          values: [true]
+        - "or"
+        - key: "VISIBILITY"
+          condition: "not_exists"
+          values: []
+
+product:
+  # Paths shared by BOTH the list response and the product-detail response (the detail just
+  # has the description/shipping/category fields populated; the list leaves them empty).
+  id: "ID"                              # e.g. "1549528_90055_12327110639956" (stable per product)
+  name: "TITLE"
+  url: null                             # not present in either response — built from url_template
+  # Syncee responses carry no user-facing product-page URL; build one from the ID. This
+  # points at the product's detail (resolves when logged in). If you find the marketplace
+  # UI page URL for a product, paste it and this template can be switched to it.
+  url_template: "https://syncee-gateway.syncee.com/syncee-product-service/api/v1/products/{id}"
+  sku: "VARIANTS.0.SKU"
+  brand: "BRAND"                        # populated in detail
+  category: "CATEGORY"                  # leaf category, e.g. "Kitchen Tools & Utensils" (detail)
+  subcategory: null
+  description: "DESCRIPTION"            # HTML; stripped during normalization (detail)
+  currency: "SUPPLIER.paymentCurrency"
+  price: "VARIANTS.0.PRICE"             # supplier-currency wholesale (fallback)
+  # Wholesale cost already converted to the retailer's currency (EUR) — preferred basis for
+  # margin (VARIANTS.0.PRICE is in the supplier's currency, e.g. AUD, and mismatches RRP).
+  default_currency_price: "VARIANTS.0.DEFAULT_CURRENCY_PRICE"
+  suggested_retail_price: "VARIANTS.0.RETAIL_PRICE"
+  shipping_cost: "SHIPPING.0.shippingCost"      # detail only (0 = free); fallback
+  shipping_min_days: "SHIPPING.0.minShippingDays"
+  shipping_max_days: "SHIPPING.0.maxShippingDays"
+  shipping_zones: "SHIPPING"                     # full per-country zones -> worst-case over targets
+  stock_status: null
+  stock_quantity: "VARIANTS.0.QTY"      # variants carry QTY
+  images: "IMAGES"                      # list of URL strings
+  images_item_field: null
+  main_image: "IMAGES.0"
+  variants: "VARIANTS"
+  ships_from: "SETTINGS.warehouseLocation"
+  added_at: "CREATED"
+  updated_at: "LAST_MODIFIED"
+  active: null                          # IS_HIDDEN exists (inverse); defaults to true for now
+
+supplier:
+  id: "USER_ID"                         # supplier's user id (stable supplier identity)
+  name: "SUPPLIER.companyName"
+  url: "SUPPLIER.website"               # populated in detail
+  country: "SETTINGS.warehouseLocation" # e.g. "Australia"
+  dispatch_countries: "SETTINGS.warehouseLocation"
+  ships_to_countries: "SUPPLIER.shipsTo"
+  approval_required: "SETTINGS.approveNeeded"
+  rating: null                          # not exposed
+  review_count: null
+  catalog_count: null
+  shipping_min_days: "SHIPPING.0.minShippingDays"   # detail only
+  shipping_max_days: "SHIPPING.0.maxShippingDays"
+  shipping_policy_available: null
+  return_policy_available: null
+  contact_available: "SUPPLIER.contactEmail"        # presence => contact available (detail)
+  active: null
+
+# --- Status --------------------------------------------------------------------------
+# DONE: offset-POST pagination (SynceeSource._iter_offset), cookie auth (SynceeApiTransport
+#   via context.request — no token needed), and category id (205 = Home & Garden, 344k products).
+# REMAINING:
+#   * Shipping cost/time, stock status, description are NOT in the list response. Margin is
+#     therefore "Incomplete" → products route to manual review; supplier shipping gate is
+#     softened by supplier_gates.require_known_shipping=false. A product-detail endpoint
+#     (not yet discovered) would fill these in for full scoring.
+#   * Home & Garden has ~344k products — a full scan isn't practical; rely on `--limit` for
+#     smoke tests and newest-first incremental scans, or narrow to a sub-category.

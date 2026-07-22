@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RB Home — Control</title>
+{% if active %}<meta http-equiv="refresh" content="5">{% endif %}
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 system-ui,sans-serif; background:#f6f6f4; color:#222; }
+  .nav { background:#222; color:#fff; padding:8px 20px; display:flex; gap:18px; align-items:center; }
+  .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; }
+  .nav a.on { color:#fff; font-weight:600; }
+  .nav .sp { margin-left:auto; }
+  .wrap { max-width:1080px; margin:0 auto; padding:20px; display:grid; gap:18px;
+          grid-template-columns:1fr 1fr; }
+  .card { background:#fff; border:1px solid #e3e3df; border-radius:10px; padding:16px 18px; }
+  .card.full { grid-column:1/-1; }
+  h2 { font-size:14px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.04em; color:#556; }
+  .row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  label.f { font-size:11px; color:#777; display:flex; flex-direction:column; gap:3px; }
+  input, select { padding:7px 9px; border:1px solid #d8d8d3; border-radius:7px; font:inherit; font-size:14px; }
+  button { padding:8px 16px; border:0; border-radius:7px; background:#2d6cdf; color:#fff;
+           font:inherit; font-weight:600; cursor:pointer; }
+  button.g { background:#1c8a4a; }
+  button:disabled { background:#bbb; cursor:not-allowed; }
+  .banner { background:#fff4e5; border:1px solid #f0d9b5; color:#8a5a10; padding:8px 12px;
+            border-radius:8px; margin:0 0 14px; font-size:14px; }
+  .active { background:#eef5ff; border:1px solid #cfe0fb; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:#2d6cdf; margin-right:6px;
+         animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .stat { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:8px; }
+  .stat .n { font-size:26px; font-weight:700; }
+  .stat .l { font-size:12px; color:#777; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:5px 8px; border-bottom:1px solid #eee; }
+  th { color:#889; font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .bar { height:6px; background:#eee; border-radius:4px; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:#1c8a4a; }
+  .chip { display:inline-block; background:#f0eee9; color:#665; border-radius:20px;
+          padding:2px 10px; font-size:12px; margin:2px 4px 2px 0; }
+  a.jl { color:#2d6cdf; text-decoration:none; }
+  .s-succeeded { color:#1c8a4a; } .s-failed { color:#c0392b; } .s-running { color:#2d6cdf; }
+  .s-paused { color:#b5652a; } .s-cancelling { color:#c0392b; } .s-cancelled { color:#888; }
+  .jbtn { padding:4px 10px; border:0; border-radius:6px; font-size:12px; cursor:pointer; color:#fff; }
+  .jbtn.pause { background:#b5652a; } .jbtn.resume { background:#1c8a4a; } .jbtn.cancel { background:#c0392b; }
+  form.inline { display:inline; margin-left:4px; }
+  .muted { color:#889; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">Products</a>
+  <a href="/control" class="on">Control</a>
+  <span class="sp"></span>
+  {% if authed %}<a href="/logout">Log out</a>{% endif %}
+</div>
+
+{% macro controls(j, redirect) %}
+  {% if j.status == 'running' %}
+  <form class="inline" method="post" action="/jobs/{{ j.id }}/pause"><input type="hidden" name="redirect" value="{{ redirect }}"><button class="jbtn pause">Pause</button></form>
+  {% elif j.status == 'paused' %}
+  <form class="inline" method="post" action="/jobs/{{ j.id }}/resume"><input type="hidden" name="redirect" value="{{ redirect }}"><button class="jbtn resume">Resume</button></form>
+  {% endif %}
+  {% if j.status in ['running', 'paused', 'cancelling'] %}
+  <form class="inline" method="post" action="/jobs/{{ j.id }}/cancel"><input type="hidden" name="redirect" value="{{ redirect }}"><button class="jbtn cancel">{{ 'Force kill' if j.status == 'cancelling' else 'Cancel' }}</button></form>
+  {% endif %}
+{% endmacro %}
+
+<div class="wrap">
+  {% set qerr = request.query_params.get('error') %}
+  {% if qerr and qerr != 'None' %}<div class="banner full" style="grid-column:1/-1">{{ qerr }}</div>{% endif %}
+
+  {% if active %}
+  <div class="card full">
+    <div class="active">
+      <span class="dot"></span><strong>{{ active.kind|capitalize }} {{ active.status }}</strong>
+      — started {{ active.started_at.strftime('%H:%M:%S') if active.started_at else '' }}.
+      <a class="jl" href="/jobs/{{ active.id }}">view live log →</a>
+      {{ controls(active, '/control') }}
+      <span class="muted">(refreshes every 5s)</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Download -->
+  <div class="card">
+    <h2>Download (scan)</h2>
+    <p class="muted" style="margin-top:0">Pull the catalogue from Syncee into Postgres. Runs headless; needs a valid auth session.</p>
+    <form method="post" action="/jobs/scan" class="row">
+      <label class="f">Category (optional)
+        <input name="category" placeholder="e.g. Home &amp; Kitchen" style="min-width:220px">
+      </label>
+      <button type="submit" {{ 'disabled' if active }}>Start scan</button>
+    </form>
+  </div>
+
+  <!-- Enrich -->
+  <div class="card">
+    <h2>Enrich</h2>
+    <p class="muted" style="margin-top:0">Fetch real shipping/description/stock. Skips already-enriched — repeat until 0 left.</p>
+    <form method="post" action="/jobs/enrich" class="row">
+      <label class="f">Chunk size
+        <input name="limit" type="number" min="1" placeholder="all" style="width:100px">
+      </label>
+      <label class="f">Collection
+        <select name="collection">
+          <option value="">All</option>
+          {% for c in collections %}<option value="{{c}}">{{c}}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="f" style="flex-direction:row; align-items:center; gap:5px;">
+        <input type="checkbox" name="reenrich" value="1"> re-enrich done
+      </label>
+      <button type="submit" class="g" {{ 'disabled' if active }}>Start enrich</button>
+    </form>
+  </div>
+
+  <!-- Catalogue status -->
+  <div class="card full">
+    <h2>Catalogue status</h2>
+    <div class="stat">
+      <div><div class="n">{{ stats.total }}</div><div class="l">products</div></div>
+      <div><div class="n">{{ stats.suppliers }}</div><div class="l">suppliers</div></div>
+      <div><div class="n">{{ stats.enriched }}</div><div class="l">enriched</div></div>
+      <div><div class="n">{{ stats.unenriched }}</div><div class="l">to enrich</div></div>
+      <div><div class="n">{{ stats.scored }}</div><div class="l">scored</div></div>
+    </div>
+    {% if stats.total %}
+    <div class="bar" style="margin:6px 0 4px"><i style="width:{{ (100*stats.enriched/stats.total)|round(1) }}%"></i></div>
+    <div class="muted">{{ (100*stats.enriched/stats.total)|round(1) }}% enriched</div>
+    {% endif %}
+    {% if stats.by_review %}
+    <div style="margin-top:12px">
+      {% for r in stats.by_review %}<span class="chip">{{ r.name }}: {{ r.count }}</span>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Per-collection -->
+  <div class="card">
+    <h2>By collection</h2>
+    {% if stats.by_collection %}
+    <table>
+      <tr><th>Collection</th><th class="num">Total</th><th class="num">Enriched</th><th class="num">Scored</th></tr>
+      {% for c in stats.by_collection %}
+      <tr><td><a class="jl" href="/?collection={{ c.name|urlencode }}">{{ c.name }}</a></td>
+        <td class="num">{{ c.total }}</td><td class="num">{{ c.enriched }}</td><td class="num">{{ c.scored }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">No products yet.</p>{% endif %}
+  </div>
+
+  <!-- Recent jobs -->
+  <div class="card">
+    <h2>Recent jobs</h2>
+    {% if recent %}
+    <table>
+      <tr><th>#</th><th>Kind</th><th>Status</th><th>When</th><th></th></tr>
+      {% for j in recent %}
+      <tr>
+        <td><a class="jl" href="/jobs/{{ j.id }}">{{ j.id }}</a></td>
+        <td>{{ j.kind }}{% if j.params.get('limit') %} ·{{ j.params.limit }}{% endif %}{% if j.params.get('category') %} ·{{ j.params.category }}{% endif %}</td>
+        <td class="s-{{ j.status }}">{{ j.status }}</td>
+        <td class="muted">{{ j.started_at.strftime('%m-%d %H:%M') if j.started_at else '' }}</td>
+        <td>{% if j.status in ['running', 'paused', 'cancelling'] %}{{ controls(j, '/control') }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">No jobs run yet.</p>{% endif %}
+  </div>
+
+  {% if stats.last_run %}
+  <div class="card full">
+    <h2>Latest scan run</h2>
+    <div class="muted">
+      Status: <strong>{{ stats.last_run.get('Status','?') }}</strong> ·
+      Completeness: {{ stats.last_run.get('Completeness Status','?') }} ·
+      products seen: {{ stats.last_run.get('Products Seen', stats.last_run.get('Products Discovered','?')) }} ·
+      new: {{ stats.last_run.get('New Products','?') }} ·
+      changed: {{ stats.last_run.get('Changed Products','?') }} ·
+      failed: {{ stats.last_run.get('Failed Products','?') }}
+    </div>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

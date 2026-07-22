@@ -1,0 +1,204 @@
+# Syncee Scanner — default operational configuration (spec §32).
+# All values are overridable via --config <file> or a local config/local.yaml.
+
+scanner_version: "0.1.0"
+
+syncee:
+  category: "Home & Kitchen"
+  base_url: "https://syncee.com"
+  headless: true
+  browser_timeout_seconds: 60
+  page_delay_seconds: 2
+  detail_page_delay_seconds: 2
+  request_jitter_seconds: 1.0
+  max_retries: 3
+  concurrency: 1
+  storage_state_path: "data/auth/storage_state.json"
+  # Auth-page recognition (spec §7). Calibrate after `discover` if validate misfires:
+  # run `auth validate --headed --debug`, look at artifacts/auth/validate/, and set the
+  # real text/URL markers below. probe_path is the authenticated-only page to check.
+  auth:
+    probe_path: "/"
+    settle_seconds: 3.0
+    authenticated_markers: ["Marketplace", "Add to import list", "My account", "Log out"]
+    login_markers: ["Log in", "Sign in", "Password"]
+    login_url_fragments: ["/login", "/signin", "/sign-in", "/auth"]
+    access_denied_fragments: ["/403", "access-denied", "forbidden"]
+
+baserow:
+  create_batch_size: 100
+  update_batch_size: 100
+  request_concurrency: 2
+  max_retries: 3
+  retry_backoff_seconds: 2
+
+markets:
+  target:
+    - Spain
+    - Portugal
+    - France
+    - Germany
+    - Italy
+    - Austria
+    - Belgium
+    - Netherlands
+    - Ireland
+  # ISO codes for the same markets (match Syncee's per-country SHIPPING zones).
+  target_codes: [ES, PT, FR, DE, IT, AT, BE, NL, IE]
+  # Suppliers must dispatch from one of these (EU-27) — avoids import VAT/customs, faster
+  # intra-EU delivery, lower shipping. Add EEA/others (Norway, UK, Switzerland) if you accept
+  # their VAT/customs. Non-EU origins (US, Australia, China, Turkey) are excluded.
+  dispatch_allowed:
+    - Austria
+    - Belgium
+    - Bulgaria
+    - Croatia
+    - Cyprus
+    - Czech Republic
+    - Denmark
+    - Estonia
+    - Finland
+    - France
+    - Germany
+    - Greece
+    - Hungary
+    - Ireland
+    - Italy
+    - Latvia
+    - Lithuania
+    - Luxembourg
+    - Malta
+    - Netherlands
+    - Poland
+    - Portugal
+    - Romania
+    - Slovakia
+    - Slovenia
+    - Spain
+    - Sweden
+
+supplier_gates:
+  max_shipping_days: 15
+  # Soft (false): list-scan ships_to is partial/unreliable, so it false-rejects suppliers that
+  # actually DO ship to the target markets. Enrichment fetches the real ships_to list; the score
+  # penalizes non-target shipping. Verify true coverage on the enriched/manual-review pass.
+  require_target_market: false
+  require_shipping_policy: false
+  require_return_policy: false
+  # Syncee's product-list API doesn't expose shipping days; leave false so suppliers aren't
+  # all hard-failed on unknown shipping (the score still penalizes it). Set true if a
+  # product-detail source that provides shipping is added.
+  require_known_shipping: false
+  # EU-dispatch only: exclude suppliers warehousing outside the EU (US/Australia/China/Turkey)
+  # to avoid import VAT/customs and speed up delivery.
+  # Relaxed to false (user, 2026-07-21): EU-only left the pool too thin (tableware, utensils,
+  # Practical Finds). Non-EU suppliers now allowed — accepts import VAT/customs + slower shipping
+  # in exchange for far more product variety. Score still penalizes slow/unknown shipping.
+  require_dispatch_in_allowed: false
+  # Lowered 60→20: list-scan supplier data is only ~30% complete by nature, so a 60% gate
+  # false-rejects nearly everyone. Enrichment fills the real data; the score still rewards
+  # completeness. This gate now only drops suppliers that are almost entirely blank.
+  minimum_data_completeness_pct: 20
+
+product_gates:
+  max_shipping_days: 15
+  minimum_margin_pct: 45
+  require_known_supplier_price: true
+  require_image: true
+  require_in_stock: true
+  # Content-based scope exclusions (regex, matched on title + description). RB Home stocks
+  # only DURABLE Home & Kitchen goods — nothing ingestible, nothing applied to skin, and no
+  # consumables (burned/evaporated/used-up). Negative lookaheads spare durable *accessories*
+  # (candle HOLDERS, soap DISPENSERS, bath MATS, decorative perfume BOTTLES, mosquito NETS).
+  exclude_keywords:
+    # Food & ingestibles (incl. non-English food terms; olivi/olio/aceite rarely appear in
+    # durable/decor listings, unlike bare "olive" which matches olive-wood)
+    - "\\b(olive oil|extra virgin|extra vergine|olivi|olio|aceite de oliva|cooking oil|vinegar|honey|jam|marmalade|spice|seasoning|tea|coffee beans|chocolate|snack|edible|foodstuff)\\b"
+    # Skin / body / personal-care (anything applied to the body)
+    - "\\b(essential oil|huile essentielle|fragrance oil|perfume oil|body oil|massage oil|lotion|body cream|face cream|hand cream|body butter|shampoo|hair conditioner|cologne|deodorant|sunscreen|sunblock|lip balm|lipstick|bath bomb|bath salt|shower gel|body wash|balm)\\b"
+    - "\\bcosmetic"       # cosmetic, cosmetics
+    - "\\bmoisturi[sz]"    # moisturiser, moisturizing
+    - "\\bskin ?care\\b"
+    - "\\bperfume\\b(?!\\s*bottle)"                                 # perfume, but keep decorative bottles
+    - "\\bsoap\\b(?!\\s*(?:dispenser|holder|dish|tray|pump|stand|box|rack))"  # soap, but keep holders
+    # Burnable / evaporative home-fragrance consumables (candle HOLDERS/warmers kept)
+    - "\\b(wax melts?|incense|incenso|incienso|encens|reed diffusers?|diffuser refill|room sprays?|air freshener|potpourri|pot-pourri|scented sachets?)\\b"
+    - "\\bcandles?\\b(?!\\s*(?:holder|stick|lantern|plate|tray|stand|jar|warmer|snuffer|box|making))"
+    - "\\b(kerzen?|bougies?)\\b"   # candle (de/fr); holders are compounds (Kerzenhalter/bougeoir), unaffected
+    - "\\b(tealights?|teelichter?|duftkerze|duft-?teelicht)\\w*"   # tealights / scented candles (de)
+    # Insect / pest consumables — sprays & repellents (mosquito NETS kept via bare-word avoidance)
+    - "\\b(insect repellent|insect spray|insecticide|pesticide|repellent|moustique|chasse[- ]?insect|mosquito repellent|anti[- ]?mosquito)\\b"
+    # Refill- / replacement-part-only listings (not standalone products)
+    - "\\b(refill|replacement only|replacement part|trigger replacement|spare part|cartridge only|remplacement)\\b"
+    # B-grade / factory-seconds / defective stock (RB Home sells first-quality only)
+    - "\\b(zweite wahl|b-?ware|b-?grade|b-?stock|factory second|2nd choice|imperfect|slight defect)\\b"
+    - "mit\\s+(kleinen\\s+)?makeln"   # "with (small) flaws" (de)
+    # Off-theme for a kitchen/dining/home/bath store: religious, jewelry, seasonal decor
+    - "\\b(crucifix|kreuz|rosary|nativity|krippe|\\bjesus\\b|holy spirit|bethlehem|prayer|religious icon)\\b"
+    - "\\b(necklace|halskette|bracelet|earrings?|pendant|schmuck|jewell?ery|\\bring\\b(?! holder)|brooch)\\b"
+    - "\\b(christmas|weihnacht|xmas|advent|easter|oster|halloween|nativity)\\w*"
+
+margin:
+  minimum_margin_pct: 45
+  target_margin_pct: 55
+  estimated_payment_fee_pct: 3
+  estimated_platform_fee_pct: 2
+  expected_return_allowance_pct: 5
+  # Syncee's list API omits shipping cost; estimate it as a % of supplier price so products
+  # can be ranked (flagged estimated; verify the winners' real shipping during manual review).
+  estimate_shipping_when_unknown: true
+  assumed_shipping_pct_of_price: 15
+  # RB Home sets its own retail: price each product to hit the target margin, then rank by
+  # how competitive that price is vs Syncee's suggested RRP (flag if much higher).
+  pricing_mode: "target_margin"
+  markup_multiple: 3.0
+  uncompetitive_over_rrp: 1.3
+
+incremental_scan:
+  stop_after_known_products: 200
+  stop_after_known_pages: 3
+
+classification:
+  minimum_confidence: 0.70
+  # Labels for the scanned subcategory ids (informational; used for tags/reference).
+  category_labels:
+    "977": "Kitchen & Dining"
+    "979": "Eco-home"
+    "1209": "Home organization"
+    "973": "Home Textiles"
+    "966": "Lighting"
+    "1160": "Home Fragrances"
+    "972": "Mirrors"
+    "978": "Other Decoration Items"
+  # Products are pooled together and classified into a collection by their OWN content
+  # (description + category + title), NOT by which subcategory they were scanned under.
+  # Leave this empty to keep that behavior; add "Subcategory": "Collection" entries to force.
+  category_collection_map: {}
+  llm:
+    enabled: false          # deterministic-first; LLM fallback stubbed & disabled (plan decision)
+    # LLM access is ONLY via OpenRouter or a subscription CLI — never a direct provider API.
+    provider: "openrouter"  # "openrouter" | "cli"
+    model: "anthropic/claude-sonnet-5"   # OpenRouter-style provider/model id
+    base_url: "https://openrouter.ai/api/v1"
+    cli_command: null       # for provider="cli", e.g. "llm" or a wrapper script
+    prompt_version: "v1"
+
+selection:
+  initial_total_min: 18
+  initial_total_max: 40   # 4 collections × ~10 (Kitchen, Dining, Home Comfort, Bathroom)
+  target_per_collection_min: 6
+  target_per_collection_max: 10
+  max_supplier_share_pct: 30
+  new_arrivals_batch_size: 4
+  # Initial price band (EUR): retail must fall within [min, max]. The floor keeps ultra-cheap
+  # novelties/impulse items (< €25) out of the curated assortment — they cheapen the store and
+  # the price-diversity bonus would otherwise over-promote them into open slots.
+  max_retail_price: 200
+  min_retail_price: 12   # lowered 25→12: many legit dining/bath items (napkins, a plate) sit below 25
+
+persistence:
+  batch_size: 100
+  checkpoint_every_products: 250
+
+safety:
+  max_pages: 5000          # hard stop for pagination loops (spec §17.4)

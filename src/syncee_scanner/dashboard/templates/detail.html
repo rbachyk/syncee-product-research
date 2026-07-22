@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ (p.get('Cleaned Title') or p.get('Product Name') or 'Product')[:60] }} — RB Home</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,sans-serif; background:#f6f6f4; color:#222; }
+  .nav { background:#222; color:#fff; padding:8px 20px; display:flex; gap:18px; align-items:center; }
+  .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; }
+  .nav .sp { margin-left:auto; }
+  .wrap { max-width:1080px; margin:0 auto; padding:20px; }
+  .head { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px; }
+  h1 { font-size:20px; margin:0 0 2px; }
+  .sub { color:#889; font-size:13px; }
+  .badges { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  .badge { background:#eef; color:#334; padding:2px 10px; border-radius:20px; font-size:12px; }
+  .badge.score { background:#e9f5ec; color:#1c8a4a; } .badge.st { background:#f0eee9; color:#665; }
+  .badge.enr { background:#eaf1fb; color:#2d6cdf; } .badge.noenr { background:#faefe9; color:#b5652a; }
+  .actions { margin-left:auto; display:flex; gap:6px; }
+  .actions button { padding:7px 14px; border:0; border-radius:7px; color:#fff; font:inherit; font-size:13px; cursor:pointer; }
+  .b-ok{background:#1c8a4a;} .b-no{background:#c0392b;} .b-pin{background:#2d6cdf;} .b-un{background:#888;}
+  .cols { display:grid; grid-template-columns:320px 1fr; gap:18px; align-items:start; }
+  @media (max-width:760px){ .cols{ grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e3df; border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+  h2 { font-size:13px; margin:0 0 10px; text-transform:uppercase; letter-spacing:.04em; color:#556; }
+  .gallery { display:flex; flex-wrap:wrap; gap:8px; }
+  .gallery img { width:88px; height:88px; object-fit:cover; border:1px solid #e3e3df; border-radius:8px; background:#eee; }
+  .hero { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#eee; margin-bottom:8px; }
+  table.kv { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.kv td { padding:5px 8px; border-bottom:1px solid #f0f0ec; vertical-align:top; }
+  table.kv td.k { color:#889; width:42%; }
+  table.kv td.v { color:#222; word-break:break-word; }
+  a.link { color:#2d6cdf; text-decoration:none; word-break:break-all; }
+  .desc { font-size:14px; white-space:pre-wrap; color:#333; }
+  table.grid { width:100%; border-collapse:collapse; font-size:13px; }
+  table.grid th, table.grid td { text-align:left; padding:6px 8px; border-bottom:1px solid #eee; white-space:nowrap; }
+  table.grid th { color:#889; font-weight:600; }
+  .scroll { overflow-x:auto; }
+  details { margin-top:8px; } summary { cursor:pointer; color:#556; font-size:13px; }
+  pre { background:#111; color:#d6e2cf; padding:14px; border-radius:8px; overflow:auto;
+        font:12px/1.5 ui-monospace,Menlo,monospace; max-height:60vh; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">Products</a><a href="/control">Control</a>
+  <span class="sp"></span>
+  <a href="{{ back }}">← back to list</a>
+  {% if authed %}<a href="/logout">Log out</a>{% endif %}
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>{{ p.get('Cleaned Title') or p.get('Product Name') or '—' }}</h1>
+      {% if p.get('Cleaned Title') and p.get('Product Name') %}<div class="sub">source: {{ p.get('Product Name') }}</div>{% endif %}
+      <div class="badges">
+        <span class="badge score">score {{ p.get('Product Score') or '?' }}</span>
+        <span class="badge">{{ p.get('Collection') or 'unclassified' }}</span>
+        <span class="badge st">{{ p.get('Review Status') or 'no review' }}</span>
+        {% if p.get('Selection Status') %}<span class="badge">{{ p.get('Selection Status') }}</span>{% endif %}
+        {% if p.get('Enriched At') %}<span class="badge enr">enriched</span>{% else %}<span class="badge noenr">not enriched</span>{% endif %}
+      </div>
+    </div>
+    <form class="actions" method="post">
+      <input type="hidden" name="redirect" value="/product/{{ p.id }}">
+      <button class="b-ok" formaction="/product/{{ p.id }}/review" name="action" value="approve">Approve</button>
+      <button class="b-no" formaction="/product/{{ p.id }}/review" name="action" value="reject">Reject</button>
+      {% if p.get('Selection Status') == 'Initial Assortment Candidate' %}
+      <button class="b-un" formaction="/product/{{ p.id }}/select" name="action" value="unpin">Remove</button>
+      {% else %}
+      <button class="b-pin" formaction="/product/{{ p.id }}/select" name="action" value="pin">Pin</button>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="cols">
+    <!-- Left: images + supplier -->
+    <div>
+      <div class="card">
+        <h2>Images</h2>
+        {% set primary = processed or images[0] if images else processed %}
+        {% if primary %}<img class="hero" src="{{ primary }}" alt="">{% endif %}
+        <div class="gallery">
+          {% if processed %}<a href="{{ processed }}" target="_blank"><img src="{{ processed }}" title="processed" alt=""></a>{% endif %}
+          {% for u in images %}<a href="{{ u }}" target="_blank"><img src="{{ u }}" loading="lazy" alt=""></a>{% endfor %}
+        </div>
+        {% if not images and not processed %}<p class="sub">No images.</p>{% endif %}
+      </div>
+
+      {% if supplier %}
+      <div class="card">
+        <h2>Supplier</h2>
+        <table class="kv">
+          <tr><td class="k">Name</td><td class="v">{{ supplier.get('Supplier Name') or '—' }}</td></tr>
+          {% if supplier.get('Supplier URL') %}<tr><td class="k">URL</td><td class="v"><a class="link" href="{{ supplier.get('Supplier URL') }}" target="_blank">{{ supplier.get('Supplier URL') }}</a></td></tr>{% endif %}
+          <tr><td class="k">Location</td><td class="v">{{ supplier.get('Location Country') or '—' }}</td></tr>
+          <tr><td class="k">Ships to</td><td class="v">{{ supplier.get('Ships To Countries') or '—' }}</td></tr>
+          <tr><td class="k">Rating</td><td class="v">{{ supplier.get('Supplier Rating') or '—' }} ({{ supplier.get('Review Count') or 0 }} reviews)</td></tr>
+          <tr><td class="k">Approval req.</td><td class="v">{{ 'yes' if supplier.get('Approval Required') else 'no' }}</td></tr>
+          <tr><td class="k">Supplier score</td><td class="v">{{ supplier.get('Supplier Score') or '—' }}</td></tr>
+          <tr><td class="k">Catalog size</td><td class="v">{{ supplier.get('Catalog Product Count') or '—' }}</td></tr>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right: sections -->
+    <div>
+      {% for title, fields in sections %}
+      <div class="card">
+        <h2>{{ title }}</h2>
+        <table class="kv">
+          {% for label, key in fields %}
+          {% set val = p.get(key) %}
+          {% if val is not none and val != '' %}
+          <tr><td class="k">{{ label }}</td><td class="v">
+            {% if key in ['Product URL'] %}<a class="link" href="{{ val }}" target="_blank">{{ val }}</a>
+            {% elif val is boolean %}{{ 'yes' if val else 'no' }}
+            {% else %}{{ val }}{% endif %}
+          </td></tr>
+          {% endif %}
+          {% endfor %}
+        </table>
+      </div>
+      {% endfor %}
+
+      {% if p.get('Description') %}
+      <div class="card"><h2>Description</h2><div class="desc">{{ p.get('Description') }}</div></div>
+      {% endif %}
+
+      <div class="card">
+        <h2>Variants ({{ variants|length }})</h2>
+        {% if variants %}
+        <div class="scroll">
+          <table class="grid">
+            <tr>{% for k in vkeys %}<th>{{ k }}</th>{% endfor %}</tr>
+            {% for v in variants %}
+            <tr>{% for k in vkeys %}<td>{{ v.get(k) if v.get(k) is not none else '' }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </table>
+        </div>
+        {% else %}
+        <p class="sub">{% if p.get('Enriched At') %}No variant detail{% if p.get('Variants Count') %} (count: {{ p.get('Variants Count') }}){% endif %}.{% else %}Not enriched yet — variants are fetched during enrichment.{% endif %}</p>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h2>All stored fields</h2>
+        <details>
+          <summary>Show every field on this record</summary>
+          <table class="kv" style="margin-top:8px">
+            {% for k, v in p.items() %}
+            {% if k not in ['Raw Data', 'Processed Image', 'id'] and v is not none and v != '' %}
+            <tr><td class="k">{{ k }}</td><td class="v">{{ v }}</td></tr>
+            {% endif %}
+            {% endfor %}
+          </table>
+        </details>
+        {% if raw_json %}
+        <details>
+          <summary>Raw mapped JSON (Syncee source record)</summary>
+          <pre>{{ raw_json }}</pre>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

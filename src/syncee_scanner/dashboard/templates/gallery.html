@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RB Home — Product Review</title>
+<style>
+  :root { --bg:#f6f6f4; --card:#fff; --line:#e3e3df; --ink:#222; --muted:#777;
+          --ok:#1c8a4a; --no:#c0392b; --pin:#2d6cdf; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  .nav { background:#222; color:#fff; padding:8px 20px; display:flex; gap:18px; align-items:center; }
+  .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; }
+  .nav a.on { color:#fff; font-weight:600; }
+  .nav .sp { margin-left:auto; }
+  header { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--line);
+           padding:10px 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; z-index:5; }
+  label.f { font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
+  select, input[type=text] { padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:13px; }
+  .count { color:var(--muted); margin-left:auto; font-size:13px; text-align:right; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; padding:20px; }
+  .ghead { grid-column:1/-1; margin:6px 0 -4px; padding:6px 2px; border-bottom:2px solid var(--line);
+           font-weight:700; font-size:14px; color:#444; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden;
+          display:flex; flex-direction:column; }
+  .thumb { aspect-ratio:1/1; background:#eee; display:flex; align-items:center; justify-content:center; }
+  .thumb img { width:100%; height:100%; object-fit:cover; }
+  .thumb .noimg { color:var(--muted); font-size:13px; }
+  .body { padding:10px 12px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .title { font-weight:600; font-size:14px; line-height:1.3; }
+  .meta { font-size:12px; color:var(--muted); }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; font-size:11px; }
+  .tag { background:#eef; color:#334; padding:1px 7px; border-radius:20px; }
+  .tag.score { background:#e9f5ec; color:#1c8a4a; }
+  .tag.status { background:#f0eee9; color:#665; }
+  .tag.enr { background:#eaf1fb; color:#2d6cdf; }
+  .tag.noenr { background:#faefe9; color:#b5652a; }
+  .actions { display:flex; gap:6px; margin-top:auto; padding-top:8px; border-top:1px solid var(--line); }
+  .actions button { flex:1; width:auto; padding:6px 0; border:0; border-radius:6px; color:#fff; font:inherit;
+           cursor:pointer; font-size:12px; }
+  .b-ok{background:var(--ok);} .b-no{background:var(--no);} .b-pin{background:var(--pin);}
+  .b-un{background:#888;}
+  .pick { position:absolute; top:8px; left:8px; z-index:2; background:rgba(255,255,255,.9);
+          border-radius:6px; padding:3px; display:flex; }
+  .pick input { width:17px; height:17px; cursor:pointer; }
+  .card { position:relative; }
+  .card a.thumb, .card a.title { text-decoration:none; color:inherit; cursor:pointer; }
+  .bulkbar { position:sticky; top:0; z-index:6; background:#1e2733; color:#fff; padding:9px 20px;
+             display:flex; gap:12px; align-items:center; font-size:13px; }
+  .bulkbar button { padding:6px 14px; border:0; border-radius:6px; color:#fff; font:inherit;
+                    font-size:13px; cursor:pointer; }
+  .bulkbar .cnt { margin-left:auto; color:#aeb9c7; }
+  .bulkbar label { display:flex; gap:6px; align-items:center; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/" class="on">Products</a>
+  <a href="/control">Control</a>
+  <span class="sp"></span>
+  {% if authed %}<a href="/logout">Log out</a>{% endif %}
+</div>
+
+<header>
+  <form method="get" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+    <label class="f">Collection
+      <select name="collection" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for c in collections %}<option value="{{c}}" {{'selected' if c==sel_collection}}>{{c}}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="f">Review status
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for s in statuses %}<option value="{{s}}" {{'selected' if s==sel_status}}>{{s}}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="f">Selection
+      <select name="selection" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for s in selections %}<option value="{{s}}" {{'selected' if s==sel_selection}}>{{s}}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="f">Enriched
+      <select name="enriched" onchange="this.form.submit()">
+        <option value="" {{'selected' if not sel_enriched}}>All</option>
+        <option value="yes" {{'selected' if sel_enriched=='yes'}}>Enriched</option>
+        <option value="no" {{'selected' if sel_enriched=='no'}}>Not enriched</option>
+      </select>
+    </label>
+    <label class="f">Sort
+      <select name="sort" onchange="this.form.submit()">
+        {% for k,v in sorts.items() %}<option value="{{k}}" {{'selected' if k==sel_sort}}>{{v[0]}}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="f">Group by
+      <select name="group" onchange="this.form.submit()">
+        {% for k,v in groups.items() %}<option value="{{k}}" {{'selected' if k==sel_group}}>{{v[0]}}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="f">Search
+      <input type="text" name="q" value="{{q}}" placeholder="name…">
+    </label>
+    <button type="submit" style="width:auto;padding:7px 14px;background:#333">Apply</button>
+  </form>
+  <span class="count">
+    {{shown}} shown{% if total != shown %} of {{total}}{% endif %}
+    {% if truncated %}<br><span style="color:#b5652a">first {{shown}} — refine filters</span>{% endif %}
+  </span>
+</header>
+
+{% set curq = ('/?' ~ request.url.query) if request.url.query else '/' %}
+<form method="post" id="bulk">
+  <input type="hidden" name="redirect" value="{{ curq }}">
+  <div class="bulkbar">
+    <label><input type="checkbox" id="all" onclick="toggleAll(this)"> Select all</label>
+    <button class="b-ok" formaction="/products/bulk" name="action" value="approve">Approve selected</button>
+    <button class="b-no" formaction="/products/bulk" name="action" value="reject">Reject selected</button>
+    <button class="b-pin" formaction="/products/bulk" name="action" value="shortlist">Shortlist selected</button>
+    <span class="cnt"><b id="nsel">0</b> selected · click a card image or title to open full detail</span>
+  </div>
+
+  <div class="grid">
+    {% set ns = namespace(g=None) %}
+    {% for p in products %}
+    {% if grouped and p.get('_group') != ns.g %}
+      {% set ns.g = p.get('_group') %}
+      <div class="ghead">{{ ns.g }}</div>
+    {% endif %}
+    {# Processed image once publish-prep has run, otherwise the supplier's original URL
+       (remote — we store URLs, never download images during scan/enrich). #}
+    {% set img = (p.get('Processed Image') or [{}])[0].get('url') or p.get('Main Image URL') %}
+    {% set link = '/product/' ~ p.id ~ '?back=' ~ (curq|urlencode) %}
+    <div class="card">
+      <label class="pick"><input type="checkbox" class="sel" name="pid" value="{{ p.id }}" onclick="upd()"></label>
+      <a class="thumb" href="{{ link }}">
+        {% if img %}<img src="{{img}}" loading="lazy" alt="">{% else %}<span class="noimg">no image</span>{% endif %}
+      </a>
+      <div class="body">
+        <a class="title" href="{{ link }}">{{ p.get('Cleaned Title') or p.get('Product Name') or '—' }}</a>
+        <div class="tags">
+          <span class="tag score">{{ p.get('Product Score') or '?' }}</span>
+          <span class="tag">{{ p.get('Collection') or '—' }}</span>
+          <span class="tag status">{{ p.get('Review Status') or '—' }}</span>
+          {% if p.get('Enriched At') %}<span class="tag enr">enriched</span>{% else %}<span class="tag noenr">not enriched</span>{% endif %}
+          {% if p.get('Selection Status') == 'Initial Assortment Candidate' %}<span class="tag" style="background:#e7effd;color:#2d6cdf">in assortment</span>{% endif %}
+        </div>
+        <div class="meta">€{{ p.get('Proposed Retail Price') or '—' }} · {{ (p.get('SEO Title') or '')[:60] }}</div>
+        <div class="actions">
+          <button class="b-ok" formaction="/product/{{p.id}}/review" name="action" value="approve">Approve</button>
+          <button class="b-no" formaction="/product/{{p.id}}/review" name="action" value="reject">Reject</button>
+          {% if p.get('Selection Status') == 'Initial Assortment Candidate' %}
+          <button class="b-un" formaction="/product/{{p.id}}/select" name="action" value="unpin">Remove</button>
+          {% else %}
+          <button class="b-pin" formaction="/product/{{p.id}}/select" name="action" value="pin">Pin</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <p style="padding:40px;color:#777">No products match. Start a scan from <a href="/control">Control</a>.</p>
+    {% endfor %}
+  </div>
+</form>
+
+<script>
+  function upd(){
+    var n = document.querySelectorAll('.sel:checked').length;
+    document.getElementById('nsel').textContent = n;
+  }
+  function toggleAll(cb){
+    document.querySelectorAll('.sel').forEach(function(x){ x.checked = cb.checked; });
+    upd();
+  }
+</script>
+</body>
+</html>

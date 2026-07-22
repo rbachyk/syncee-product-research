@@ -1,0 +1,31 @@
+# Secrets & session
+.env
+data/auth/
+*.storage_state.json
+
+# Runtime output
+logs/
+artifacts/
+exports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Coverage
+.coverage
+htmlcov/
