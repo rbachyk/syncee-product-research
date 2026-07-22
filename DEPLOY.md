@@ -9,8 +9,11 @@ images live in Postgres and are served by the dashboard.
 | Service     | Role                                            | Exposed            |
 |-------------|-------------------------------------------------|--------------------|
 | `db`        | Postgres 16, all pipeline state (JSONB)         | internal only      |
-| `dashboard` | Review/approve UI (`uvicorn`)                   | `:8000` (host)     |
+| `dashboard` | Review/approve UI (`uvicorn`)                   | `:8505` (host)     |
 | `scanner`   | The `syncee-scanner` CLI, run on demand         | — (`compose run`)  |
+
+The dashboard listens on **8000 inside the container**, published on host port **8505**
+(`DASHBOARD_PORT`) to match the Caddy reverse proxy.
 
 ## First-time setup
 
@@ -24,10 +27,10 @@ cp .env.example .env
 docker compose up -d --build
 
 # 3. Confirm it's healthy
-curl -s localhost:8000/health        # {"status":"ok","products":0}
+curl -s localhost:8505/health        # {"status":"ok","products":0}
 ```
 
-The dashboard is now on `http://<vps-ip>:8000`.
+The dashboard is now on `http://<vps-ip>:8505` (proxy it behind Caddy — see below).
 
 ## Login
 
@@ -45,6 +48,29 @@ HttpOnly); `/health` stays public for monitoring. Leaving it **blank** keeps the
 — only do that if it already sits behind a trusted proxy. Changing the password invalidates all
 existing sessions. Still terminate TLS with a reverse proxy (Caddy/nginx) for HTTPS; the login
 replaces the need for proxy-level auth.
+
+## Behind Caddy
+
+Publish the dashboard on the host port your Caddy site targets (default `8505`) and let Caddy
+terminate TLS:
+
+```caddy
+{$SYNCEE_PRODUCT_RESEARCH_DOMAIN} {
+    encode zstd gzip
+    import security_headers
+    reverse_proxy host.docker.internal:8505
+}
+```
+
+- Keep `DASHBOARD_PORT=8505` in `.env` so the published port matches `reverse_proxy`.
+- Set `DASHBOARD_COOKIE_SECURE=1` — Caddy serves HTTPS, so the session cookie should be
+  Secure-flagged.
+- If Caddy runs in a container on Linux, give it access to the host gateway so
+  `host.docker.internal` resolves — add to Caddy's service:
+  `extra_hosts: ["host.docker.internal:host-gateway"]`.
+- The dashboard's `${DASHBOARD_PORT}:8000` mapping binds `0.0.0.0`, so restrict host port
+  `8505` to the Docker gateway with your firewall (e.g. `ufw`) if you don't want it reachable
+  except through Caddy.
 
 ## Providing the Syncee session
 

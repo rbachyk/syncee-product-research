@@ -50,7 +50,9 @@ services:
       - ./exports:/app/exports
       - ./artifacts:/app/artifacts
     ports:
-      - "${DASHBOARD_PORT:-8000}:8000"
+      # host:container — Caddy reverse-proxies to host.docker.internal:<host port>.
+      # Default host port 8505 matches the Caddy config; the container always listens on 8000.
+      - "${DASHBOARD_PORT:-8505}:8000"
 
   # One-shot CLI runner: `docker compose run --rm scanner <args>`.
   # Shares the same image, DB, and env; mounts host dirs for auth state,
