@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RB Home — Sourcing Insights</title>
+<style>
+  body { margin:0; font:15px/1.45 system-ui,sans-serif; background:#f6f6f4; color:#222; }
+  .nav { background:#222; color:#fff; padding:8px 20px; display:flex; gap:18px; align-items:center; }
+  .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; } .nav a.on { color:#fff; font-weight:600; }
+  .nav .sp { margin-left:auto; }
+  .wrap { max-width:1000px; margin:0 auto; padding:20px; }
+  h1 { font-size:18px; margin-bottom:4px; }
+  .note { background:#eef5ff; border:1px solid #cfe0fb; border-radius:8px; padding:10px 14px;
+          font-size:13.5px; color:#33506e; margin:12px 0 18px; }
+  .card { background:#fff; border:1px solid #e3e3df; border-radius:10px; padding:16px 18px; margin-bottom:16px; }
+  h2 { font-size:13px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.04em; color:#556; }
+  .bars { display:flex; flex-direction:column; gap:8px; }
+  .row { display:grid; grid-template-columns:150px 1fr 90px; gap:10px; align-items:center; font-size:13px; }
+  .bar { height:16px; background:#eee; border-radius:4px; overflow:hidden; }
+  .bar > i { display:block; height:100%; }
+  .b-loss{background:#c0392b;} .b-thin{background:#e08e3c;} .b-mod{background:#d9c534;}
+  .b-good{background:#5bbq56;background:#69b34c;} .b-great{background:#1c8a4a;}
+  .b-below{background:#1c8a4a;} .b-p10{background:#69b34c;} .b-p25{background:#d9c534;}
+  .b-p50{background:#e08e3c;} .b-over{background:#c0392b;}
+  .num { text-align:right; font-variant-numeric:tabular-nums; color:#556; }
+  .big { font-size:30px; font-weight:800; }
+  .big.g { color:#1c8a4a; } .big.r { color:#c0392b; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid #eee; white-space:nowrap; }
+  th { color:#889; } td.n,th.n { text-align:right; font-variant-numeric:tabular-nums; }
+  a.jl { color:#2d6cdf; text-decoration:none; }
+  .muted { color:#889; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">Products</a><a href="/control">Control</a><a href="/insights" class="on">Insights</a><a href="/runs">Runs</a>
+  <span class="sp"></span>
+  {% if authed %}<a href="/logout">Log out</a>{% endif %}
+</div>
+<div class="wrap">
+  <h1>Sourcing insights</h1>
+  <div class="note">
+    These reflect your <b>last scoring run</b>. To answer “what margin can I make selling at the
+    <b>market</b> price?”, score in <b>rrp</b> mode first
+    (<a href="/control">Control → Score</a>, pricing model = rrp, min margin 0) — then the margin
+    buckets below show your realistic pool. The <b>vs-RRP</b> buckets are most meaningful after a
+    <i>markup / target_margin</i> run (how far your desired-margin price sits above market).
+  </div>
+
+  {% macro bucket(label, n, total, cls) %}
+  <div class="row">
+    <span>{{ label }}</span>
+    <div class="bar"><i class="{{ cls }}" style="width:{{ (100*n/total)|round(1) if total else 0 }}%"></i></div>
+    <span class="num">{{ n }} · {{ (100*n/total)|round(1) if total else 0 }}%</span>
+  </div>
+  {% endmacro %}
+
+  <div class="card">
+    <h2>Winners — healthy margin (≥40%) AND at/near market (≤+10% vs RRP)</h2>
+    <span class="big {{ 'g' if winners_total else 'r' }}">{{ winners_total }}</span>
+    <span class="muted">product(s) you could sell profitably at a competitive price.
+      {% if not winners_total %}If this is ~0 after an <b>rrp</b>-mode score, Syncee can't support your margins — that's the signal to add another source.{% endif %}
+    </span>
+  </div>
+
+  <div class="card">
+    <h2>Margin at your last-scored price ({{ margin.total }} scored)</h2>
+    <div class="bars">
+      {{ bucket('Loss (<0%)', margin.loss, margin.total, 'b-loss') }}
+      {{ bucket('Thin (0–30%)', margin.thin, margin.total, 'b-thin') }}
+      {{ bucket('Moderate (30–40%)', margin.moderate, margin.total, 'b-mod') }}
+      {{ bucket('Good (40–50%)', margin.good, margin.total, 'b-good') }}
+      {{ bucket('Great (≥50%)', margin.great, margin.total, 'b-great') }}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Price vs market / RRP ({{ vsrrp.total }} with RRP)</h2>
+    <div class="bars">
+      {{ bucket('At/below market (≤0%)', vsrrp.below, vsrrp.total, 'b-below') }}
+      {{ bucket('+0–10%', vsrrp.p10, vsrrp.total, 'b-p10') }}
+      {{ bucket('+10–25%', vsrrp.p25, vsrrp.total, 'b-p25') }}
+      {{ bucket('+25–50%', vsrrp.p50, vsrrp.total, 'b-p50') }}
+      {{ bucket('+50% and up', vsrrp.over, vsrrp.total, 'b-over') }}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Winners by collection</h2>
+    <table>
+      <tr><th>Collection</th><th class="n">Winners (≥40% & ≤+10%)</th><th class="n">Total</th></tr>
+      {% for c in by_coll %}
+      <tr><td><a class="jl" href="/?collection={{ c.name|urlencode }}&max_vs_rrp=10&sort=vs_rrp">{{ c.name }}</a></td>
+        <td class="n">{{ c.winners }}</td><td class="n">{{ c.total }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Top competitively-priced candidates (≤+10% vs RRP, ≥30% margin)</h2>
+    {% if top %}
+    <div style="overflow-x:auto"><table>
+      <tr><th>Product</th><th>Collection</th><th class="n">Margin %</th><th class="n">vs RRP</th><th class="n">Price €</th></tr>
+      {% for t in top %}
+      <tr>
+        <td><a class="jl" href="/product/{{ t.id }}?back=/insights">{{ (t.name or '')[:52] }}</a></td>
+        <td class="muted">{{ t.collection or '—' }}</td>
+        <td class="n">{{ t.margin }}</td>
+        <td class="n">{{ t.vs_rrp }}%</td>
+        <td class="n">{{ t.price }}</td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<p class="muted">No products at ≤+10% vs RRP with ≥30% margin. Score in rrp mode, or this confirms the pool is too thin.</p>{% endif %}
+  </div>
+</div>
+</body>
+</html>

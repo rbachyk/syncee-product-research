@@ -483,6 +483,56 @@ def export_csv(what: str):
     )
 
 
+@app.get("/insights", response_class=HTMLResponse)
+def insights(request: Request):
+    """Sourcing diagnostics: is there a profitable pool at market prices? (all literal SQL —
+    the 'Estimated Margin %' key contains a %, which breaks parameterized queries)."""
+    num = "~ '^-?[0-9.]+$'"  # numeric-only guard so ::float never errors on bad data
+    with _conn() as conn, conn.cursor() as cur:
+        marg = "(data->>'Estimated Margin %')::float"
+        vrrp = "(data->>'Price vs RRP')::float"
+        cur.execute(
+            "SELECT count(*) FILTER (WHERE m < 0), count(*) FILTER (WHERE m >= 0 AND m < 30), "
+            "count(*) FILTER (WHERE m >= 30 AND m < 40), "
+            "count(*) FILTER (WHERE m >= 40 AND m < 50), "
+            "count(*) FILTER (WHERE m >= 50), count(*) "
+            f"FROM (SELECT {marg} m FROM products WHERE data->>'Estimated Margin %' {num}) t"
+        )
+        mk = ["loss", "thin", "moderate", "good", "great", "total"]
+        margin = dict(zip(mk, cur.fetchone(), strict=True))
+        cur.execute(
+            "SELECT count(*) FILTER (WHERE v <= 0), count(*) FILTER (WHERE v > 0 AND v <= 10), "
+            "count(*) FILTER (WHERE v > 10 AND v <= 25), "
+            "count(*) FILTER (WHERE v > 25 AND v <= 50), "
+            "count(*) FILTER (WHERE v > 50), count(*) "
+            f"FROM (SELECT {vrrp} v FROM products WHERE data->>'Price vs RRP' {num}) t"
+        )
+        vk = ["below", "p10", "p25", "p50", "over", "total"]
+        vsrrp = dict(zip(vk, cur.fetchone(), strict=True))
+        # Winners = healthy margin AND priced at/near market, per collection.
+        cur.execute(
+            "SELECT coalesce(data->>'Collection','(unclassified)'), "
+            f"count(*) FILTER (WHERE {marg} >= 40 AND {vrrp} <= 10), count(*) "
+            f"FROM products WHERE data->>'Estimated Margin %' {num} "
+            "GROUP BY 1 ORDER BY 2 DESC"
+        )
+        by_coll = [{"name": r[0], "winners": r[1], "total": r[2]} for r in cur.fetchall()]
+        # Best competitively-priced candidates.
+        cur.execute(
+            "SELECT id, data->>'Product Name', data->>'Collection', data->>'Estimated Margin %', "
+            "data->>'Price vs RRP', data->>'Proposed Retail Price' FROM products "
+            f"WHERE data->>'Estimated Margin %' {num} AND data->>'Price vs RRP' {num} "
+            f"AND {vrrp} <= 10 AND {marg} >= 30 ORDER BY {marg} DESC LIMIT 40"
+        )
+        cols = ["id", "name", "collection", "margin", "vs_rrp", "price"]
+        top = [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]
+    winners_total = sum(c["winners"] for c in by_coll)
+    return _TEMPLATES.TemplateResponse(request, "insights.html", {
+        "margin": margin, "vsrrp": vsrrp, "by_coll": by_coll, "top": top,
+        "winners_total": winners_total, "authed": auth.auth_enabled(),
+    })
+
+
 @app.get("/runs", response_class=HTMLResponse)
 def runs_list(request: Request):
     """Scan-run history (spec §12)."""
