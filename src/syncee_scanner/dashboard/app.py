@@ -200,9 +200,10 @@ def gallery(
                     "WHERE data->>'Ships From' IS NOT NULL AND data->>'Ships From' <> '' "
                     "GROUP BY 1 ORDER BY 2 DESC")
         ship_countries = [{"name": r[0], "n": r[1]} for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT data->>'Source' FROM products "
-                    "WHERE data->>'Source' IS NOT NULL ORDER BY 1")
-        source_names = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT data->>'Source', count(*) FROM products "
+                    "WHERE data->>'Source' IS NOT NULL GROUP BY 1 ORDER BY 2 DESC")
+        source_counts = [{"name": r[0], "n": r[1]} for r in cur.fetchall()]
+        source_names = [s["name"] for s in source_counts]
         # Counts for the quick-view chips (whole catalogue, ignoring current filters).
         cur.execute(
             "SELECT count(*), "
@@ -217,9 +218,18 @@ def gallery(
         c_all, c_short, c_review, c_appr, c_initial, c_winners = cur.fetchone()
         sup_names = _supplier_names(conn) if group == "supplier" else {}
 
-    plain = not (status or selection or min_margin or max_vs_rrp)
+    plain = not (status or selection or min_margin or max_vs_rrp or source)
     quick_views = [
         {"label": "All", "query": "", "n": c_all, "active": plain},
+    ]
+    # Per-source chips (only when >1 source exists) so "view only CJ" is one click.
+    if len(source_counts) > 1:
+        for s in source_counts:
+            quick_views.append({
+                "label": s["name"], "query": f"source={s['name'].replace(' ', '+')}",
+                "n": s["n"], "active": source == s["name"],
+            })
+    quick_views += [
         {"label": "★ Winners", "query": "min_margin=30&max_vs_rrp=10&viable=1&sort=vs_rrp",
          "n": c_winners, "active": bool(_num(min_margin))},
         {"label": "Shortlisted", "query": "status=Shortlisted", "n": c_short,
