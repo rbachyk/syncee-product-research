@@ -82,6 +82,10 @@ REVIEW_ACTIONS = {
 _DECISIONS = {"approve": DecisionValue.APPROVE, "reject": DecisionValue.REJECT}
 _PAGE_LIMIT = 500
 _SHIPS_FROM_Q = Query(default=[])  # module-level singleton (avoids ruff B008 in the default)
+# Products that failed hard gates or whose supplier was rejected — never "winners".
+_VIABLE_SQL = (
+    "coalesce(data->>'Review Status','') NOT IN ('Gate Failed', 'Excluded by Supplier')"
+)
 
 # Sort key → (label, SQL order expression).
 SORTS = {
@@ -126,8 +130,8 @@ def _supplier_names(conn) -> dict[str, str]:
 def gallery(
     request: Request, collection: str = "", status: str = "", selection: str = "",
     enriched: str = "", ships_from: list[str] = _SHIPS_FROM_Q, supplier: str = "",
-    max_vs_rrp: str = "", min_margin: str = "", q: str = "", sort: str = "score",
-    group: str = "none",
+    max_vs_rrp: str = "", min_margin: str = "", viable: str = "", q: str = "",
+    sort: str = "score", group: str = "none",
 ):
     """Product gallery: filter (collection/review/selection/enriched/ships-from/supplier/search)."""
     sort = sort if sort in SORTS else "score"
@@ -165,6 +169,9 @@ def gallery(
     if _num(min_margin) is not None:
         where.append("(data->>'Estimated Margin Pct')::float >= %s")
         params.append(_num(min_margin))
+    if viable:
+        # Exclude products that failed the hard gates or whose supplier was rejected.
+        where.append(_VIABLE_SQL)
     if q:
         where.append("data->>'Product Name' ILIKE %s")
         params.append(f"%{q}%")
@@ -198,7 +205,7 @@ def gallery(
             "count(*) FILTER (WHERE data->>'Review Status' = 'Approved'), "
             "count(*) FILTER (WHERE data->>'Selection Status' = 'Initial Assortment Candidate'), "
             "count(*) FILTER (WHERE (data->>'Estimated Margin Pct')::float >= 30 "
-            "  AND (data->>'Price vs RRP')::float <= 10) "
+            f"  AND (data->>'Price vs RRP')::float <= 10 AND {_VIABLE_SQL}) "
             "FROM products"
         )
         c_all, c_short, c_review, c_appr, c_initial, c_winners = cur.fetchone()
@@ -207,8 +214,8 @@ def gallery(
     plain = not (status or selection or min_margin or max_vs_rrp)
     quick_views = [
         {"label": "All", "query": "", "n": c_all, "active": plain},
-        {"label": "★ Winners", "query": "min_margin=30&max_vs_rrp=10&sort=vs_rrp", "n": c_winners,
-         "active": bool(_num(min_margin))},
+        {"label": "★ Winners", "query": "min_margin=30&max_vs_rrp=10&viable=1&sort=vs_rrp",
+         "n": c_winners, "active": bool(_num(min_margin))},
         {"label": "Shortlisted", "query": "status=Shortlisted", "n": c_short,
          "active": status == "Shortlisted"},
         {"label": "Needs review", "query": "status=Manual+Review", "n": c_review,
@@ -521,7 +528,7 @@ def insights(request: Request):
         # Winners = healthy margin AND priced at/near market, per collection.
         cur.execute(
             "SELECT coalesce(data->>'Collection','(unclassified)'), "
-            f"count(*) FILTER (WHERE {marg} >= 40 AND {vrrp} <= 10), count(*) "
+            f"count(*) FILTER (WHERE {marg} >= 40 AND {vrrp} <= 10 AND {_VIABLE_SQL}), count(*) "
             f"FROM products WHERE data->>'Estimated Margin Pct' {num} "
             "GROUP BY 1 ORDER BY 2 DESC"
         )
@@ -531,7 +538,7 @@ def insights(request: Request):
             "SELECT id, data->>'Product Name', data->>'Collection', data->>'Estimated Margin Pct', "
             "data->>'Price vs RRP', data->>'Proposed Retail Price' FROM products "
             f"WHERE data->>'Estimated Margin Pct' {num} AND data->>'Price vs RRP' {num} "
-            f"AND {vrrp} <= 10 AND {marg} >= 30 ORDER BY {marg} DESC LIMIT 40"
+            f"AND {vrrp} <= 10 AND {marg} >= 30 AND {_VIABLE_SQL} ORDER BY {marg} DESC LIMIT 40"
         )
         cols = ["id", "name", "collection", "margin", "vs_rrp", "price"]
         top = [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]
