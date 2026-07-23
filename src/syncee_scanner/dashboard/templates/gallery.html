@@ -130,6 +130,9 @@
     <label class="f">Supplier
       <input type="text" name="supplier" value="{{ sel_supplier }}" placeholder="name…" style="width:130px">
     </label>
+    <label class="f">Min margin %
+      <input type="number" name="min_margin" value="{{ sel_min_margin }}" step="5" placeholder="any" style="width:80px" title="keep products with at least this gross margin %">
+    </label>
     <label class="f">Max % vs RRP
       <input type="number" name="max_vs_rrp" value="{{ sel_max_vs_rrp }}" step="5" placeholder="any" style="width:90px" title="keep products priced at most this % above market (e.g. 0 = at/below RRP)">
     </label>

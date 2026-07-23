@@ -163,7 +163,7 @@ def _product_fields(r, classification, supplier_eligible: bool) -> dict:
     if m.landed_cost is not None:
         fields["Estimated Landed Cost"] = m.landed_cost
         fields["Estimated Margin Amount"] = m.margin_amount
-        fields["Estimated Margin %"] = m.margin_pct
+        fields["Estimated Margin Pct"] = m.margin_pct
         fields["Proposed Retail Price"] = m.proposed_retail_price
         # Syncee's RRP converted to EUR, so it's comparable to the final EUR price.
         if m.market_price:

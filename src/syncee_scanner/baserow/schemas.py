@@ -156,7 +156,7 @@ PRODUCTS = TableDef(
         FieldDef("Shipping Cost Known", FieldType.BOOLEAN, required=True),
         FieldDef("Estimated Landed Cost", FieldType.NUMBER, number_decimals=2),
         FieldDef("Estimated Margin Amount", FieldType.NUMBER, number_decimals=2),
-        FieldDef("Estimated Margin %", FieldType.NUMBER, number_decimals=1),
+        FieldDef("Estimated Margin Pct", FieldType.NUMBER, number_decimals=1),
         FieldDef(
             "Margin Status", FieldType.SINGLE_SELECT, required=True,
             select_options=_opts(MarginStatus),

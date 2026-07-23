@@ -126,7 +126,8 @@ def _supplier_names(conn) -> dict[str, str]:
 def gallery(
     request: Request, collection: str = "", status: str = "", selection: str = "",
     enriched: str = "", ships_from: list[str] = _SHIPS_FROM_Q, supplier: str = "",
-    max_vs_rrp: str = "", q: str = "", sort: str = "score", group: str = "none",
+    max_vs_rrp: str = "", min_margin: str = "", q: str = "", sort: str = "score",
+    group: str = "none",
 ):
     """Product gallery: filter (collection/review/selection/enriched/ships-from/supplier/search)."""
     sort = sort if sort in SORTS else "score"
@@ -161,6 +162,9 @@ def gallery(
         # Keep only products priced at most N% above market (negative = below RRP).
         where.append("(data->>'Price vs RRP')::float <= %s")
         params.append(_num(max_vs_rrp))
+    if _num(min_margin) is not None:
+        where.append("(data->>'Estimated Margin Pct')::float >= %s")
+        params.append(_num(min_margin))
     if q:
         where.append("data->>'Product Name' ILIKE %s")
         params.append(f"%{q}%")
@@ -192,15 +196,19 @@ def gallery(
             "count(*) FILTER (WHERE data->>'Review Status' = 'Shortlisted'), "
             "count(*) FILTER (WHERE data->>'Review Status' = 'Manual Review'), "
             "count(*) FILTER (WHERE data->>'Review Status' = 'Approved'), "
-            "count(*) FILTER (WHERE data->>'Selection Status' = 'Initial Assortment Candidate') "
+            "count(*) FILTER (WHERE data->>'Selection Status' = 'Initial Assortment Candidate'), "
+            "count(*) FILTER (WHERE (data->>'Estimated Margin Pct')::float >= 30 "
+            "  AND (data->>'Price vs RRP')::float <= 10) "
             "FROM products"
         )
-        c_all, c_short, c_review, c_appr, c_initial = cur.fetchone()
+        c_all, c_short, c_review, c_appr, c_initial, c_winners = cur.fetchone()
         sup_names = _supplier_names(conn) if group == "supplier" else {}
 
+    plain = not (status or selection or min_margin or max_vs_rrp)
     quick_views = [
-        {"label": "All", "query": "", "n": c_all,
-         "active": not status and not selection},
+        {"label": "All", "query": "", "n": c_all, "active": plain},
+        {"label": "★ Winners", "query": "min_margin=30&max_vs_rrp=10&sort=vs_rrp", "n": c_winners,
+         "active": bool(_num(min_margin))},
         {"label": "Shortlisted", "query": "status=Shortlisted", "n": c_short,
          "active": status == "Shortlisted"},
         {"label": "Needs review", "query": "status=Manual+Review", "n": c_review,
@@ -231,7 +239,8 @@ def gallery(
         "ship_countries": ship_countries,
         "sel_collection": collection, "sel_status": status, "sel_selection": selection,
         "sel_enriched": enriched, "sel_ships_from": ships_from, "sel_supplier": supplier,
-        "sel_max_vs_rrp": max_vs_rrp, "sel_sort": sort, "sel_group": group, "q": q,
+        "sel_max_vs_rrp": max_vs_rrp, "sel_min_margin": min_margin,
+        "sel_sort": sort, "sel_group": group, "q": q,
         "shown": len(products), "total": total, "truncated": truncated, "grouped": group != "none",
         "authed": auth.auth_enabled(),
     })
@@ -314,7 +323,7 @@ _DETAIL_SECTIONS = [
         ("Syncee RRP (source ccy)", "Suggested Retail Price"),
         ("Shipping cost", "Shipping Cost"), ("Shipping cost known", "Shipping Cost Known"),
         ("Landed cost (EUR)", "Estimated Landed Cost"),
-        ("Margin amount (EUR)", "Estimated Margin Amount"), ("Margin %", "Estimated Margin %"),
+        ("Margin amount (EUR)", "Estimated Margin Amount"), ("Margin %", "Estimated Margin Pct"),
     ]),
     ("Shipping & stock", [
         ("Ships from", "Ships From"), ("Dispatch min days", "Shipping Min Days"),
@@ -486,17 +495,17 @@ def export_csv(what: str):
 @app.get("/insights", response_class=HTMLResponse)
 def insights(request: Request):
     """Sourcing diagnostics: is there a profitable pool at market prices? (all literal SQL —
-    the 'Estimated Margin %' key contains a %, which breaks parameterized queries)."""
+    the 'Estimated Margin Pct' key contains a %, which breaks parameterized queries)."""
     num = "~ '^-?[0-9.]+$'"  # numeric-only guard so ::float never errors on bad data
     with _conn() as conn, conn.cursor() as cur:
-        marg = "(data->>'Estimated Margin %')::float"
+        marg = "(data->>'Estimated Margin Pct')::float"
         vrrp = "(data->>'Price vs RRP')::float"
         cur.execute(
             "SELECT count(*) FILTER (WHERE m < 0), count(*) FILTER (WHERE m >= 0 AND m < 30), "
             "count(*) FILTER (WHERE m >= 30 AND m < 40), "
             "count(*) FILTER (WHERE m >= 40 AND m < 50), "
             "count(*) FILTER (WHERE m >= 50), count(*) "
-            f"FROM (SELECT {marg} m FROM products WHERE data->>'Estimated Margin %' {num}) t"
+            f"FROM (SELECT {marg} m FROM products WHERE data->>'Estimated Margin Pct' {num}) t"
         )
         mk = ["loss", "thin", "moderate", "good", "great", "total"]
         margin = dict(zip(mk, cur.fetchone(), strict=True))
@@ -513,15 +522,15 @@ def insights(request: Request):
         cur.execute(
             "SELECT coalesce(data->>'Collection','(unclassified)'), "
             f"count(*) FILTER (WHERE {marg} >= 40 AND {vrrp} <= 10), count(*) "
-            f"FROM products WHERE data->>'Estimated Margin %' {num} "
+            f"FROM products WHERE data->>'Estimated Margin Pct' {num} "
             "GROUP BY 1 ORDER BY 2 DESC"
         )
         by_coll = [{"name": r[0], "winners": r[1], "total": r[2]} for r in cur.fetchall()]
         # Best competitively-priced candidates.
         cur.execute(
-            "SELECT id, data->>'Product Name', data->>'Collection', data->>'Estimated Margin %', "
+            "SELECT id, data->>'Product Name', data->>'Collection', data->>'Estimated Margin Pct', "
             "data->>'Price vs RRP', data->>'Proposed Retail Price' FROM products "
-            f"WHERE data->>'Estimated Margin %' {num} AND data->>'Price vs RRP' {num} "
+            f"WHERE data->>'Estimated Margin Pct' {num} AND data->>'Price vs RRP' {num} "
             f"AND {vrrp} <= 10 AND {marg} >= 30 ORDER BY {marg} DESC LIMIT 40"
         )
         cols = ["id", "name", "collection", "margin", "vs_rrp", "price"]
