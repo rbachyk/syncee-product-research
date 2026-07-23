@@ -19,14 +19,14 @@ supplier_scoring:
     approval_friction: 5
 
 product_scoring:
-  # v2: calibrated to real Syncee data (target-margin pricing compresses scores ~55-73).
-  version: "product-v2"
-  reject_below: 55
-  manual_review_from: 55
-  # Relaxed 66→62 to widen the thin Practical Finds durable pool to a full 10 (§26). Products
-  # 62–66 still lose to higher-scored ones in selection; risk-flagged/consumable items remain
-  # gated out regardless of this cutoff.
-  shortlist_from: 62
+  # v3: recalibrated for market (RRP) pricing. The margin criterion now reflects the ACTUAL
+  # gross margin (0..1 of target) instead of a flat 1.0, so scores shifted down ~5-8 pts —
+  # thresholds lowered to match, or nothing shortlists. Tune to your data: check /control's
+  # review-status counts; raise these for a stricter shortlist, lower them for a wider one.
+  version: "product-v3"
+  reject_below: 45      # below this → Scored Rejected
+  manual_review_from: 45
+  shortlist_from: 55    # at/above this (and ≥ min margin) → Shortlisted
   weights:
     problem_solved: 20
     margin: 20

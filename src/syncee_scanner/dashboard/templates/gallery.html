@@ -13,6 +13,12 @@
   .nav a { color:#cfd6e4; text-decoration:none; font-size:14px; }
   .nav a.on { color:#fff; font-weight:600; }
   .nav .sp { margin-left:auto; }
+  .views { display:flex; gap:8px; align-items:center; padding:8px 20px; background:#fff;
+           border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .views a { text-decoration:none; font-size:13px; color:#556; padding:4px 12px; border-radius:20px;
+             border:1px solid var(--line); background:#fafafa; }
+  .views a.on { background:#222; color:#fff; border-color:#222; font-weight:600; }
+  .views a .n { opacity:.7; font-variant-numeric:tabular-nums; }
   header { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--line);
            padding:10px 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; z-index:5; }
   label.f { font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
@@ -60,6 +66,12 @@
   <a href="/runs">Runs</a>
   <span class="sp"></span>
   {% if authed %}<a href="/logout">Log out</a>{% endif %}
+</div>
+
+<div class="views">
+  {% for v in quick_views %}
+  <a href="/{{ '?' ~ v.query if v.query else '' }}" class="{{ 'on' if v.active }}">{{ v.label }} <span class="n">{{ v.n }}</span></a>
+  {% endfor %}
 </div>
 
 <header>

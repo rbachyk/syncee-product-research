@@ -161,7 +161,30 @@ def gallery(
         cur.execute("SELECT DISTINCT data->>'Selection Status' FROM products "
                     "WHERE data->>'Selection Status' IS NOT NULL ORDER BY 1")
         selections = [r[0] for r in cur.fetchall()]
+        # Counts for the quick-view chips (whole catalogue, ignoring current filters).
+        cur.execute(
+            "SELECT count(*), "
+            "count(*) FILTER (WHERE data->>'Review Status' = 'Shortlisted'), "
+            "count(*) FILTER (WHERE data->>'Review Status' = 'Manual Review'), "
+            "count(*) FILTER (WHERE data->>'Review Status' = 'Approved'), "
+            "count(*) FILTER (WHERE data->>'Selection Status' = 'Initial Assortment Candidate') "
+            "FROM products"
+        )
+        c_all, c_short, c_review, c_appr, c_initial = cur.fetchone()
         sup_names = _supplier_names(conn) if group == "supplier" else {}
+
+    quick_views = [
+        {"label": "All", "query": "", "n": c_all,
+         "active": not status and not selection},
+        {"label": "Shortlisted", "query": "status=Shortlisted", "n": c_short,
+         "active": status == "Shortlisted"},
+        {"label": "Needs review", "query": "status=Manual+Review", "n": c_review,
+         "active": status == "Manual Review"},
+        {"label": "Approved", "query": "status=Approved", "n": c_appr,
+         "active": status == "Approved"},
+        {"label": "Initial pack", "query": "selection=Initial+Assortment+Candidate", "n": c_initial,
+         "active": selection == "Initial Assortment Candidate"},
+    ]
 
     truncated = len(rows) > _PAGE_LIMIT
     rows = rows[:_PAGE_LIMIT]
@@ -179,7 +202,7 @@ def gallery(
 
     return _TEMPLATES.TemplateResponse(request, "gallery.html", {
         "products": products, "collections": COLLECTIONS, "statuses": statuses,
-        "selections": selections, "sorts": SORTS, "groups": GROUPS,
+        "selections": selections, "sorts": SORTS, "groups": GROUPS, "quick_views": quick_views,
         "sel_collection": collection, "sel_status": status, "sel_selection": selection,
         "sel_enriched": enriched, "sel_sort": sort, "sel_group": group, "q": q,
         "shown": len(products), "total": total, "truncated": truncated, "grouped": group != "none",
