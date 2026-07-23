@@ -29,7 +29,7 @@ sources:
       token_path: "data.accessToken"
       token_cache: "data/cj_token.json"
       token_ttl_hours: 240
-      min_interval_seconds: 1.1   # CJ QPS limit is 1 request/second
+      min_interval_seconds: 1.3   # CJ QPS limit is 1 req/s (measured server-side; leave jitter headroom)
 
 syncee:
   category: "Home & Kitchen"

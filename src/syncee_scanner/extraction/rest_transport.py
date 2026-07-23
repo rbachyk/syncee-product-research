@@ -39,14 +39,30 @@ class RestApiTransport:
         self._last_request: float = 0.0
 
     def _throttle(self) -> None:
-        """Respect the API's request-rate limit (CJ: 1 request/second)."""
+        """Wait so the next request is >= min_interval after the *previous one finished*
+        (CJ's 1 req/s is a global bucket — the token mint counts too)."""
         gap = self.api.min_interval_seconds
         if gap <= 0:
             return
         wait = gap - (time.time() - self._last_request)
         if wait > 0:
             time.sleep(wait)
-        self._last_request = time.time()
+
+    def _get(self, url: str, **kw):
+        self._throttle()
+        try:
+            resp = self._client.get(url, headers=self._headers(), **kw)
+        finally:
+            self._last_request = time.time()
+        return resp
+
+    def _post(self, url: str, **kw):
+        self._throttle()
+        try:
+            resp = self._client.post(url, **kw)
+        finally:
+            self._last_request = time.time()
+        return resp
 
     # --- auth --------------------------------------------------------------------------
 
@@ -89,7 +105,7 @@ class RestApiTransport:
                 f"{self.api.auth_email_env} and {self.api.auth_env} are required to mint a token.",
             )
         try:
-            resp = self._client.post(self.api.auth_url, json={"email": email, "password": password})
+            resp = self._post(self.api.auth_url, json={"email": email, "password": password})
         except httpx.HTTPError as exc:
             raise ScannerError(ErrorCode.SOURCE_API_ERROR, f"token exchange failed: {exc}") from exc
         token = _dig(resp.json(), self.api.token_path)
@@ -126,12 +142,16 @@ class RestApiTransport:
                 "This source's mapping has no list.endpoint_template — run discovery first.",
             )
         method = (self.mapping.list.method or "GET").upper()
-        self._throttle()
+        self._access_token()  # mint (throttled) before the page request, not back-to-back with it
         try:
             if method == "GET":
-                resp = self._client.get(url, headers=self._headers(), params=payload)
+                resp = self._get(url, params=payload)
             else:
-                resp = self._client.request(method, url, headers=self._headers(), json=payload)
+                self._throttle()
+                try:
+                    resp = self._client.request(method, url, headers=self._headers(), json=payload)
+                finally:
+                    self._last_request = time.time()
         except httpx.HTTPError as exc:
             raise ScannerError(ErrorCode.SOURCE_API_ERROR, f"{url} request failed: {exc}") from exc
         if resp.status_code != 200:
@@ -146,9 +166,9 @@ class RestApiTransport:
         if not tmpl:
             return None
         url = tmpl.replace("{id}", str(product_id))
-        self._throttle()
+        self._access_token()  # mint (throttled) before the detail request
         try:
-            resp = self._client.get(url, headers=self._headers())
+            resp = self._get(url)
         except httpx.HTTPError as exc:
             raise ScannerError(ErrorCode.SOURCE_API_ERROR, f"{url} failed: {exc}") from exc
         if resp.status_code != 200:
@@ -170,9 +190,8 @@ class RestApiTransport:
         if not vid:
             return
         url = lm.stock_endpoint_template.replace("{vid}", str(vid))
-        self._throttle()
         try:
-            resp = self._client.get(url, headers=self._headers())
+            resp = self._get(url)  # token already ensured by get_detail
         except httpx.HTTPError:
             return
         if resp.status_code != 200:
