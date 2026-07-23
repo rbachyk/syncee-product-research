@@ -101,6 +101,15 @@
         <option value="no" {{'selected' if sel_enriched=='no'}}>Not enriched</option>
       </select>
     </label>
+    <label class="f">Ships from
+      <select name="ships_from" onchange="this.form.submit()">
+        <option value="">All countries</option>
+        {% for c in ship_countries %}<option value="{{c.name}}" {{'selected' if c.name==sel_ships_from}}>{{c.name}} ({{c.n}})</option>{% endfor %}
+      </select>
+    </label>
+    <label class="f">Supplier
+      <input type="text" name="supplier" value="{{ sel_supplier }}" placeholder="name…" style="width:130px">
+    </label>
     <label class="f">Sort
       <select name="sort" onchange="this.form.submit()">
         {% for k,v in sorts.items() %}<option value="{{k}}" {{'selected' if k==sel_sort}}>{{v[0]}}</option>{% endfor %}

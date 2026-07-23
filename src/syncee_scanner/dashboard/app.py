@@ -121,9 +121,10 @@ def _supplier_names(conn) -> dict[str, str]:
 @app.get("/", response_class=HTMLResponse)
 def gallery(
     request: Request, collection: str = "", status: str = "", selection: str = "",
-    enriched: str = "", q: str = "", sort: str = "score", group: str = "none",
+    enriched: str = "", ships_from: str = "", supplier: str = "",
+    q: str = "", sort: str = "score", group: str = "none",
 ):
-    """Product gallery: filter (collection/review/selection/enriched/search), sort, and group."""
+    """Product gallery: filter (collection/review/selection/enriched/ships-from/supplier/search)."""
     sort = sort if sort in SORTS else "score"
     group = group if group in GROUPS else "none"
     where, params = ["TRUE"], []
@@ -140,6 +141,17 @@ def gallery(
         where.append("data->>'Enriched At' IS NOT NULL")
     elif enriched == "no":
         where.append("data->>'Enriched At' IS NULL")
+    if ships_from:
+        where.append("data->>'Ships From' = %s")
+        params.append(ships_from)
+    if supplier:
+        # Match products whose supplier's name contains the text (supplier names live on the
+        # suppliers row; products only link by id).
+        where.append(
+            "data->'Supplier'->>0 IN "
+            "(SELECT id::text FROM suppliers WHERE data->>'Supplier Name' ILIKE %s)"
+        )
+        params.append(f"%{supplier}%")
     if q:
         where.append("data->>'Product Name' ILIKE %s")
         params.append(f"%{q}%")
@@ -161,6 +173,10 @@ def gallery(
         cur.execute("SELECT DISTINCT data->>'Selection Status' FROM products "
                     "WHERE data->>'Selection Status' IS NOT NULL ORDER BY 1")
         selections = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT data->>'Ships From', count(*) FROM products "
+                    "WHERE data->>'Ships From' IS NOT NULL AND data->>'Ships From' <> '' "
+                    "GROUP BY 1 ORDER BY 2 DESC")
+        ship_countries = [{"name": r[0], "n": r[1]} for r in cur.fetchall()]
         # Counts for the quick-view chips (whole catalogue, ignoring current filters).
         cur.execute(
             "SELECT count(*), "
@@ -203,8 +219,10 @@ def gallery(
     return _TEMPLATES.TemplateResponse(request, "gallery.html", {
         "products": products, "collections": COLLECTIONS, "statuses": statuses,
         "selections": selections, "sorts": SORTS, "groups": GROUPS, "quick_views": quick_views,
+        "ship_countries": ship_countries,
         "sel_collection": collection, "sel_status": status, "sel_selection": selection,
-        "sel_enriched": enriched, "sel_sort": sort, "sel_group": group, "q": q,
+        "sel_enriched": enriched, "sel_ships_from": ships_from, "sel_supplier": supplier,
+        "sel_sort": sort, "sel_group": group, "q": q,
         "shown": len(products), "total": total, "truncated": truncated, "grouped": group != "none",
         "authed": auth.auth_enabled(),
     })
