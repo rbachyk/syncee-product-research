@@ -30,10 +30,10 @@ list:
   # 1209 Home organization. Home Comfort sources: 973 Home Textiles, 966 Lighting,
   # 1160 Home Fragrances, 972 Mirrors, 978 Other Decoration Items. Set to [] for all of 205.
   categories: [979, 1209, 973, 966, 1160, 972, 978, 977]
-  # Cap products scanned per category so the pool is balanced across very different sizes
-  # (Eco-home 638, Home org 1,496, Kitchen 35,571). 0 = unlimited.
-  # Cap per subcategory (8 of them now) to keep the pool manageable while sampling each well.
-  per_category_limit: 1200
+  # Products scanned per category. 0 = unlimited (download the whole subcategory). The old
+  # 1200 cap capped the total at ~8,920 (8 categories, minus the smaller ones); unlimited
+  # pulls the full pool (Kitchen & Dining alone is ~35k) so scoring/selection has everything.
+  per_category_limit: 0
   # POST body sent each page; `from`/`size` (and `category`) are injected per page. Values
   # below are ACCOUNT-SPECIFIC (captured from rb.commerce.home): userId, countryCode.
   request_template:
