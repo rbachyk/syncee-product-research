@@ -23,6 +23,18 @@
            padding:10px 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; z-index:5; }
   label.f { font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
   select, input[type=text] { padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:13px; }
+  .ms { position:relative; }
+  .ms > summary { list-style:none; cursor:pointer; padding:6px 8px; border:1px solid var(--line);
+                  border-radius:6px; font-size:13px; background:#fff; min-width:120px; }
+  .ms > summary::-webkit-details-marker { display:none; }
+  .ms[open] > summary { border-color:#2d6cdf; }
+  .ms-panel { position:absolute; z-index:10; top:calc(100% + 2px); left:0; background:#fff;
+              border:1px solid var(--line); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.13);
+              padding:6px; max-height:300px; overflow:auto; min-width:210px; }
+  .ms-opt { display:block; font-size:13px; padding:4px 6px; white-space:nowrap; cursor:pointer; border-radius:4px; }
+  .ms-opt:hover { background:#f2f4f8; }
+  .ms-bar { display:flex; gap:8px; padding:2px 6px 6px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  .ms-bar a { font-size:12px; color:#2d6cdf; text-decoration:none; cursor:pointer; }
   .count { color:var(--muted); margin-left:auto; font-size:13px; text-align:right; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; padding:20px; }
   .ghead { grid-column:1/-1; margin:6px 0 -4px; padding:6px 2px; border-bottom:2px solid var(--line);
@@ -101,12 +113,19 @@
         <option value="no" {{'selected' if sel_enriched=='no'}}>Not enriched</option>
       </select>
     </label>
-    <label class="f">Ships from
-      <select name="ships_from" onchange="this.form.submit()">
-        <option value="">All countries</option>
-        {% for c in ship_countries %}<option value="{{c.name}}" {{'selected' if c.name==sel_ships_from}}>{{c.name}} ({{c.n}})</option>{% endfor %}
-      </select>
-    </label>
+    <div class="f">Ships from
+      <details class="ms">
+        <summary>{% if sel_ships_from %}{{ sel_ships_from|length }} selected{% else %}All countries{% endif %}</summary>
+        <div class="ms-panel">
+          <div class="ms-bar">
+            <a onclick="msAll(this,true)">Select all</a><a onclick="msAll(this,false)">Clear</a>
+          </div>
+          {% for c in ship_countries %}
+          <label class="ms-opt"><input type="checkbox" name="ships_from" value="{{c.name}}" {{'checked' if c.name in sel_ships_from}}> {{c.name}} ({{c.n}})</label>
+          {% endfor %}
+        </div>
+      </details>
+    </div>
     <label class="f">Supplier
       <input type="text" name="supplier" value="{{ sel_supplier }}" placeholder="name…" style="width:130px">
     </label>
@@ -193,6 +212,10 @@
   function toggleAll(cb){
     document.querySelectorAll('.sel').forEach(function(x){ x.checked = cb.checked; });
     upd();
+  }
+  function msAll(el, checked){
+    el.closest('.ms-panel').querySelectorAll('input[type=checkbox]').forEach(function(x){ x.checked = checked; });
+    return false;
   }
 </script>
 </body>

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 import psycopg
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
@@ -81,6 +81,7 @@ REVIEW_ACTIONS = {
 # Approve/reject are audited manual decisions (§14) — mapped to the shared CLI override path.
 _DECISIONS = {"approve": DecisionValue.APPROVE, "reject": DecisionValue.REJECT}
 _PAGE_LIMIT = 500
+_SHIPS_FROM_Q = Query(default=[])  # module-level singleton (avoids ruff B008 in the default)
 
 # Sort key → (label, SQL order expression).
 SORTS = {
@@ -121,7 +122,7 @@ def _supplier_names(conn) -> dict[str, str]:
 @app.get("/", response_class=HTMLResponse)
 def gallery(
     request: Request, collection: str = "", status: str = "", selection: str = "",
-    enriched: str = "", ships_from: str = "", supplier: str = "",
+    enriched: str = "", ships_from: list[str] = _SHIPS_FROM_Q, supplier: str = "",
     q: str = "", sort: str = "score", group: str = "none",
 ):
     """Product gallery: filter (collection/review/selection/enriched/ships-from/supplier/search)."""
@@ -141,8 +142,9 @@ def gallery(
         where.append("data->>'Enriched At' IS NOT NULL")
     elif enriched == "no":
         where.append("data->>'Enriched At' IS NULL")
+    ships_from = [s for s in ships_from if s]  # drop empties
     if ships_from:
-        where.append("data->>'Ships From' = %s")
+        where.append("data->>'Ships From' = ANY(%s)")
         params.append(ships_from)
     if supplier:
         # Match products whose supplier's name contains the text (supplier names live on the
