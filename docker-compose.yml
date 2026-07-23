@@ -48,6 +48,11 @@ services:
       SHOPIFY_CLIENT_ID: ${SHOPIFY_CLIENT_ID:-}
       SHOPIFY_CLIENT_SECRET: ${SHOPIFY_CLIENT_SECRET:-}
       SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
+      # Extra product sources (multi-source): CJ token exchange, BigBuy (when live).
+      CJ_API_EMAIL: ${CJ_API_EMAIL:-}
+      CJ_API_KEY: ${CJ_API_KEY:-}
+      BIGBUY_PRODUCTION_API_KEY: ${BIGBUY_PRODUCTION_API_KEY:-}
+      BIGBUY_SANDBOX_API_KEY: ${BIGBUY_SANDBOX_API_KEY:-}
     volumes:
       - ./data:/app/data          # Syncee storage_state.json (auth session for scans)
       - ./exports:/app/exports
@@ -73,6 +78,11 @@ services:
       SHOPIFY_CLIENT_ID: ${SHOPIFY_CLIENT_ID:-}
       SHOPIFY_CLIENT_SECRET: ${SHOPIFY_CLIENT_SECRET:-}
       SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
+      # Extra product sources (multi-source): CJ token exchange, BigBuy (when live).
+      CJ_API_EMAIL: ${CJ_API_EMAIL:-}
+      CJ_API_KEY: ${CJ_API_KEY:-}
+      BIGBUY_PRODUCTION_API_KEY: ${BIGBUY_PRODUCTION_API_KEY:-}
+      BIGBUY_SANDBOX_API_KEY: ${BIGBUY_SANDBOX_API_KEY:-}
     volumes:
       - ./data:/app/data          # Syncee storage_state.json (auth session)
       - ./exports:/app/exports
