@@ -90,6 +90,9 @@ SORTS = {
     "price_asc": ("Price (low→high)", "(data->>'Proposed Retail Price')::float ASC NULLS LAST"),
     "name": ("Name (A→Z)", "data->>'Product Name' ASC"),
     "enriched": ("Recently enriched", "(data->>'Enriched At') DESC NULLS LAST"),
+    "vs_rrp": ("Closest to market (vs RRP ↑)", "(data->>'Price vs RRP')::float ASC NULLS LAST"),
+    "vs_rrp_desc": ("Furthest above market (vs RRP ↓)",
+                    "(data->>'Price vs RRP')::float DESC NULLS LAST"),
 }
 # Group key → (label, SQL group expression, product field to read the group value from).
 GROUPS = {
@@ -123,7 +126,7 @@ def _supplier_names(conn) -> dict[str, str]:
 def gallery(
     request: Request, collection: str = "", status: str = "", selection: str = "",
     enriched: str = "", ships_from: list[str] = _SHIPS_FROM_Q, supplier: str = "",
-    q: str = "", sort: str = "score", group: str = "none",
+    max_vs_rrp: str = "", q: str = "", sort: str = "score", group: str = "none",
 ):
     """Product gallery: filter (collection/review/selection/enriched/ships-from/supplier/search)."""
     sort = sort if sort in SORTS else "score"
@@ -154,6 +157,10 @@ def gallery(
             "(SELECT id::text FROM suppliers WHERE data->>'Supplier Name' ILIKE %s)"
         )
         params.append(f"%{supplier}%")
+    if _num(max_vs_rrp) is not None:
+        # Keep only products priced at most N% above market (negative = below RRP).
+        where.append("(data->>'Price vs RRP')::float <= %s")
+        params.append(_num(max_vs_rrp))
     if q:
         where.append("data->>'Product Name' ILIKE %s")
         params.append(f"%{q}%")
@@ -224,7 +231,7 @@ def gallery(
         "ship_countries": ship_countries,
         "sel_collection": collection, "sel_status": status, "sel_selection": selection,
         "sel_enriched": enriched, "sel_ships_from": ships_from, "sel_supplier": supplier,
-        "sel_sort": sort, "sel_group": group, "q": q,
+        "sel_max_vs_rrp": max_vs_rrp, "sel_sort": sort, "sel_group": group, "q": q,
         "shown": len(products), "total": total, "truncated": truncated, "grouped": group != "none",
         "authed": auth.auth_enabled(),
     })
@@ -302,7 +309,7 @@ _DETAIL_SECTIONS = [
     ("Pricing & margin", [
         ("Final price (EUR)", "Proposed Retail Price"),
         ("Market price / RRP (EUR)", "Market Price (EUR)"),
-        ("Price vs RRP", "Price vs RRP %"),
+        ("Price vs RRP (%)", "Price vs RRP"),
         ("Supplier price (source ccy)", "Supplier Price"), ("Currency", "Currency"),
         ("Syncee RRP (source ccy)", "Suggested Retail Price"),
         ("Shipping cost", "Shipping Cost"), ("Shipping cost known", "Shipping Cost Known"),

@@ -129,6 +129,9 @@
     <label class="f">Supplier
       <input type="text" name="supplier" value="{{ sel_supplier }}" placeholder="name…" style="width:130px">
     </label>
+    <label class="f">Max % vs RRP
+      <input type="number" name="max_vs_rrp" value="{{ sel_max_vs_rrp }}" step="5" placeholder="any" style="width:90px" title="keep products priced at most this % above market (e.g. 0 = at/below RRP)">
+    </label>
     <label class="f">Sort
       <select name="sort" onchange="this.form.submit()">
         {% for k,v in sorts.items() %}<option value="{{k}}" {{'selected' if k==sel_sort}}>{{v[0]}}</option>{% endfor %}

@@ -168,9 +168,10 @@ def _product_fields(r, classification, supplier_eligible: bool) -> dict:
         # Syncee's RRP converted to EUR, so it's comparable to the final EUR price.
         if m.market_price:
             fields["Market Price (EUR)"] = round(m.market_price, 2)
-            # How far our price sits from the market: +% above RRP, -% below.
+            # How far our price sits from the market: +% above RRP, -% below. Key has no '%'
+            # so it's usable in SQL filters/sorts (a literal % breaks parameterized queries).
             if m.proposed_retail_price:
-                fields["Price vs RRP %"] = round(
+                fields["Price vs RRP"] = round(
                     (m.proposed_retail_price / m.market_price - 1) * 100, 1
                 )
     return fields
