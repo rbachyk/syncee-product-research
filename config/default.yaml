@@ -176,7 +176,9 @@ currency:
     BRL: 0.17
 
 margin:
-  minimum_margin_pct: 45
+  # Keep a product only if it clears this gross margin (% of the sale price) at its price.
+  # Products below this are rejected (they can't be sold profitably at the market price).
+  minimum_margin_pct: 40
   target_margin_pct: 55
   estimated_payment_fee_pct: 3
   estimated_platform_fee_pct: 2
@@ -185,9 +187,11 @@ margin:
   # can be ranked (flagged estimated; verify the winners' real shipping during manual review).
   estimate_shipping_when_unknown: true
   assumed_shipping_pct_of_price: 15
-  # RB Home sets its own retail: price each product to hit the target margin, then rank by
-  # how competitive that price is vs Syncee's suggested RRP (flag if much higher).
-  pricing_mode: "target_margin"
+  # Sell at the MARKET price (Syncee's suggested RRP), optionally undercut by rrp_discount_pct.
+  # Margin is then computed at that real price; anything under minimum_margin_pct is rejected —
+  # no more fantasy prices far above what the item actually sells for.
+  pricing_mode: "rrp"
+  rrp_discount_pct: 0
   markup_multiple: 3.0
   uncompetitive_over_rrp: 1.3
 

@@ -104,13 +104,11 @@ class TestEnrichAndFunnel:
         assert prod["Stock Quantity"] == 150
         assert prod["Description"]
         assert prod["Collection"] == "Kitchen Convenience"
-        # Competitive product shortlists and outranks the uncompetitive (thin) one, which
-        # carries the UNCOMPETITIVE_PRICE flag (its target-margin price is well above RRP).
+        # Priced at market (RRP): the healthy-margin product shortlists; the thin one (cost
+        # 18 vs RRP 20 → margin below the 40% minimum) is rejected as not sellably profitable.
         assert p.products["pid:P1"]["Review Status"] == "Shortlisted"
-        p1_score = p.products["pid:P1"]["Product Score"] or 0
-        p3_score = p.products["pid:P3"]["Product Score"] or 0
-        assert p1_score > p3_score
-        assert "UNCOMPETITIVE_PRICE" in (p.products["pid:P3"]["Exclusion Reason Codes"] or "")
+        assert p.products["pid:P3"]["Review Status"] == "Scored Rejected"
+        assert "LOW_MARGIN" in (p.products["pid:P3"]["Exclusion Reason Codes"] or "")
         # A selection batch was produced.
         assert result.batch["result"].count >= 1
 

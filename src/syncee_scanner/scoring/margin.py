@@ -91,8 +91,8 @@ def compute_margin(
             proposed = (supplier_price + shipping_cost) / denom
     elif m.pricing_mode == "markup":
         proposed = supplier_price * m.markup_multiple
-    else:  # "rrp"
-        proposed = market_rrp
+    else:  # "rrp" — sell at the market price (optionally undercut a bit)
+        proposed = market_rrp * (1 - m.rrp_discount_pct / 100)
     if proposed is None or proposed <= 0:
         return MarginResult(status=MarginStatus.INCOMPLETE, market_price=market_rrp)
 

@@ -129,7 +129,8 @@ class MarginConfig(BaseModel):
     #                      product hits target margin; rank by competitiveness vs Syncee RRP.
     #   "markup"        -> price = cost * markup_multiple.
     #   "rrp"           -> evaluate at Syncee's suggested retail price.
-    pricing_mode: Literal["target_margin", "markup", "rrp"] = "target_margin"
+    pricing_mode: Literal["target_margin", "markup", "rrp"] = "rrp"
+    rrp_discount_pct: float = 0  # sell this % below RRP (0 = exactly at market)
     markup_multiple: float = 3.0
     # Flag as uncompetitive when the target-margin price exceeds this multiple of Syncee's RRP.
     uncompetitive_over_rrp: float = 1.3

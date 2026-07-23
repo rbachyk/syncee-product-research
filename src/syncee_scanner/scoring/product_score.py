@@ -167,7 +167,10 @@ def score_product(
         # Target-margin price is well above Syncee's RRP — informational, lowers the score.
         reasons.append(ProductReason.UNCOMPETITIVE_PRICE)
 
-    if force_manual:
+    if margin.status == MarginStatus.BELOW_MINIMUM:
+        # Can't clear the minimum margin at its market price → not sellable profitably, reject.
+        review = ProductReviewStatus.SCORED_REJECTED
+    elif force_manual:
         review = ProductReviewStatus.MANUAL_REVIEW
     elif score < cfg.reject_below:
         reasons.append(ProductReason.LOW_PRODUCT_SCORE)
