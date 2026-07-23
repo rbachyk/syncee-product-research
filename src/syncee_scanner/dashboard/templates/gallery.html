@@ -20,7 +20,7 @@
   .views a.on { background:#222; color:#fff; border-color:#222; font-weight:600; }
   .views a .n { opacity:.7; font-variant-numeric:tabular-nums; }
   header { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--line);
-           padding:10px 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; z-index:5; }
+           padding:10px 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; z-index:30; }
   label.f { font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
   select, input[type=text] { padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:13px; }
   .ms { position:relative; }
@@ -142,7 +142,7 @@
     <label class="f">Search
       <input type="text" name="q" value="{{q}}" placeholder="name…">
     </label>
-    <button type="submit" style="width:auto;padding:7px 14px;background:#333">Apply</button>
+    <button type="submit" style="width:auto;padding:7px 16px;background:#2d6cdf;color:#fff;border-radius:6px;font-weight:600;cursor:pointer">Apply</button>
   </form>
   <span class="count">
     {{shown}} shown{% if total != shown %} of {{total}}{% endif %}
