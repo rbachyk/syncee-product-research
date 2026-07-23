@@ -280,12 +280,13 @@ def bulk_review(request: Request, action: str = Form(...), pid: list[int] = _PID
 # Curated field groups for the detail page (label, product-field key).
 _DETAIL_SECTIONS = [
     ("Pricing & margin", [
+        ("Final price (EUR)", "Proposed Retail Price"),
+        ("Syncee RRP (market)", "Suggested Retail Price"),
+        ("Price vs RRP", "Price vs RRP %"),
         ("Supplier price", "Supplier Price"), ("Currency", "Currency"),
-        ("Suggested retail", "Suggested Retail Price"),
-        ("Proposed retail", "Proposed Retail Price"),
         ("Shipping cost", "Shipping Cost"), ("Shipping cost known", "Shipping Cost Known"),
-        ("Landed cost", "Estimated Landed Cost"),
-        ("Margin amount", "Estimated Margin Amount"), ("Margin %", "Estimated Margin %"),
+        ("Landed cost (EUR)", "Estimated Landed Cost"),
+        ("Margin amount (EUR)", "Estimated Margin Amount"), ("Margin %", "Estimated Margin %"),
     ]),
     ("Shipping & stock", [
         ("Ships from", "Ships From"), ("Dispatch min days", "Shipping Min Days"),
@@ -410,9 +411,15 @@ def _stats() -> dict:
 
 @app.get("/control", response_class=HTMLResponse)
 def control(request: Request):
+    from ..config import load_config
+
+    m = load_config().margin
+    pricing = {"mode": m.pricing_mode, "target_margin": m.target_margin_pct,
+               "min_margin": m.minimum_margin_pct,
+               "modes": ["rrp", "target_margin", "markup"]}
     return _TEMPLATES.TemplateResponse(request, "control.html", {
         "stats": _stats(), "active": jobs.active_job(), "recent": jobs.recent_jobs(),
-        "collections": COLLECTIONS, "authed": auth.auth_enabled(),
+        "collections": COLLECTIONS, "pricing": pricing, "authed": auth.auth_enabled(),
     })
 
 
@@ -483,13 +490,26 @@ def start_enrich(limit: str = Form(""), collection: str = Form(""),
     return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
 
 
+def _num(v: str) -> float | None:
+    try:
+        return float(v) if v.strip() != "" else None
+    except (ValueError, AttributeError):
+        return None
+
+
 @app.post("/jobs/score")
-def start_score(target: str = Form(...)):
-    """Score suppliers or products (target = 'suppliers' | 'products')."""
-    argv = jobs.score_argv(target)
+def start_score(target: str = Form(...), pricing_mode: str = Form(""),
+                target_margin: str = Form(""), min_margin: str = Form("")):
+    """Score suppliers/products, with optional pricing overrides for a re-score."""
+    argv = jobs.score_argv(
+        target, pricing_mode=pricing_mode.strip() or None,
+        target_margin=_num(target_margin), min_margin=_num(min_margin),
+    )
     if argv is None:
         return RedirectResponse("/control?error=Unknown+score+target", status_code=303)
-    _, err = jobs.start_job(f"score-{target}", argv, {"target": target})
+    params = {"target": target, "pricing_mode": pricing_mode.strip(),
+              "target_margin": _num(target_margin), "min_margin": _num(min_margin)}
+    _, err = jobs.start_job(f"score-{target}", argv, params)
     return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
 
 

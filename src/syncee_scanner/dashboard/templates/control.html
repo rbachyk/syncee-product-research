@@ -125,17 +125,33 @@
   <!-- Score -->
   <div class="card full">
     <h2>Score</h2>
-    <p class="muted" style="margin-top:0">Run after enriching. Suppliers first (gates + score), then products (gates + margin + score + classification into collections).</p>
-    <div class="row">
+    <p class="muted" style="margin-top:0">Run after enriching. Suppliers first (gates + score), then products. The pricing overrides re-price + re-score instantly — no rebuild needed.</p>
+    <div class="row" style="margin-bottom:12px">
       <form method="post" action="/jobs/score">
         <input type="hidden" name="target" value="suppliers">
         <button type="submit" {{ 'disabled' if active }}>Score suppliers</button>
       </form>
-      <form method="post" action="/jobs/score">
-        <input type="hidden" name="target" value="products">
-        <button type="submit" class="g" {{ 'disabled' if active }}>Score products</button>
-      </form>
     </div>
+    <form method="post" action="/jobs/score" class="row">
+      <input type="hidden" name="target" value="products">
+      <label class="f">Pricing model
+        <select name="pricing_mode">
+          {% for mode in pricing.modes %}<option value="{{mode}}" {{'selected' if mode==pricing.mode}}>{{mode}}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="f">Target margin %
+        <input name="target_margin" type="number" step="1" min="0" max="95" value="{{ pricing.target_margin }}" style="width:90px">
+      </label>
+      <label class="f">Min margin %
+        <input name="min_margin" type="number" step="1" min="0" max="95" value="{{ pricing.min_margin }}" style="width:90px">
+      </label>
+      <button type="submit" class="g" {{ 'disabled' if active }}>Score products</button>
+    </form>
+    <p class="muted" style="margin:8px 0 0; font-size:12px">
+      <b>rrp</b>: sell at Syncee's suggested price (reject if under min margin). ·
+      <b>target_margin</b>: price = cost ÷ (1 − fees − target margin), i.e. cost + your desired margin; see how far each lands from market on the product card. ·
+      <b>markup</b>: price = cost × multiple.
+    </p>
   </div>
 
   <!-- Select -->

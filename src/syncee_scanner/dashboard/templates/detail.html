@@ -18,6 +18,10 @@
   .badge { background:#eef; color:#334; padding:2px 10px; border-radius:20px; font-size:12px; }
   .badge.score { background:#e9f5ec; color:#1c8a4a; } .badge.st { background:#f0eee9; color:#665; }
   .badge.enr { background:#eaf1fb; color:#2d6cdf; } .badge.noenr { background:#faefe9; color:#b5652a; }
+  .price { margin-top:10px; }
+  .price .big { font-size:26px; font-weight:800; color:#1c8a4a; }
+  .price .pmeta { font-size:13px; color:#778; margin-left:8px; }
+  .price .over { color:#c0392b; } .price .under { color:#1c8a4a; }
   .actions { margin-left:auto; display:flex; gap:6px; }
   .actions button { padding:7px 14px; border:0; border-radius:7px; color:#fff; font:inherit; font-size:13px; cursor:pointer; }
   .b-ok{background:#1c8a4a;} .b-no{background:#c0392b;} .b-pin{background:#2d6cdf;} .b-un{background:#888;}
@@ -63,6 +67,16 @@
         {% if p.get('Selection Status') %}<span class="badge">{{ p.get('Selection Status') }}</span>{% endif %}
         {% if p.get('Enriched At') %}<span class="badge enr">enriched</span>{% else %}<span class="badge noenr">not enriched</span>{% endif %}
       </div>
+      {% if p.get('Proposed Retail Price') %}
+      <div class="price">
+        <span class="big">€{{ p.get('Proposed Retail Price') }}</span>
+        <span class="pmeta">final price · margin {{ p.get('Estimated Margin %') or '?' }}%
+        {% if p.get('Suggested Retail Price') %}· RRP €{{ p.get('Suggested Retail Price') }}
+          {% set d = p.get('Price vs RRP %') %}
+          {% if d is not none %}<span class="{{ 'over' if d > 0 else 'under' }}">({{ '+' if d > 0 }}{{ d }}% vs market)</span>{% endif %}
+        {% endif %}</span>
+      </div>
+      {% endif %}
     </div>
     <form class="actions" method="post">
       <input type="hidden" name="redirect" value="/product/{{ p.id }}">

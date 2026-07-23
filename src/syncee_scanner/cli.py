@@ -585,10 +585,35 @@ def cmd_score_suppliers(
 def cmd_score_products(
     config: str | None = typer.Option(None, "--config"),
     dry_run: bool = typer.Option(False, "--dry-run"),
+    pricing_mode: str | None = typer.Option(
+        None, "--pricing-mode", help="Override: rrp | target_margin | markup."
+    ),
+    target_margin: float | None = typer.Option(
+        None, "--target-margin", help="Override target gross margin %% (target_margin mode)."
+    ),
+    min_margin: float | None = typer.Option(
+        None, "--min-margin", help="Override minimum margin %% to keep a product."
+    ),
     debug: bool = typer.Option(False, "--debug"),
 ):
-    """Product hard gates + margin + weighted scoring + classification (spec §22-§25)."""
+    """Product hard gates + margin + weighted scoring + classification (spec §22-§25).
+
+    The pricing overrides let you re-price/re-score without editing config + rebuilding.
+    """
     cfg = _load(config, debug)
+    if pricing_mode:
+        if pricing_mode not in ("rrp", "target_margin", "markup"):
+            typer.secho(f"Invalid --pricing-mode '{pricing_mode}'.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(2)
+        cfg.margin.pricing_mode = pricing_mode
+    if target_margin is not None:
+        cfg.margin.target_margin_pct = target_margin
+    if min_margin is not None:
+        cfg.margin.minimum_margin_pct = min_margin
+    typer.echo(
+        f"Pricing: {cfg.margin.pricing_mode} | target {cfg.margin.target_margin_pct}% | "
+        f"min {cfg.margin.minimum_margin_pct}%"
+    )
     _activate_fx(cfg)  # convert supplier prices to EUR with today's rates before margin
     from .scoring.service import score_products
 

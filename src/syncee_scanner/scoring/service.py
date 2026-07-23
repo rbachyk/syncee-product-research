@@ -165,6 +165,11 @@ def _product_fields(r, classification, supplier_eligible: bool) -> dict:
         fields["Estimated Margin Amount"] = m.margin_amount
         fields["Estimated Margin %"] = m.margin_pct
         fields["Proposed Retail Price"] = m.proposed_retail_price
+        # How far our price sits from Syncee's suggested RRP: +% above market, -% below.
+        if m.market_price and m.proposed_retail_price:
+            fields["Price vs RRP %"] = round(
+                (m.proposed_retail_price / m.market_price - 1) * 100, 1
+            )
     return fields
 
 

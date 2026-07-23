@@ -284,12 +284,22 @@ def enrich_argv(
     return argv
 
 
-def score_argv(target: str) -> list[str] | None:
-    """`score suppliers` (gates + weighted score) or `score products` (gates + margin +
-    score + classification). Returns None for an unknown target."""
+def score_argv(
+    target: str, *, pricing_mode: str | None = None,
+    target_margin: float | None = None, min_margin: float | None = None,
+) -> list[str] | None:
+    """`score suppliers` or `score products` (+ optional pricing overrides for re-scoring)."""
     if target not in ("suppliers", "products"):
         return None
-    return ["syncee-scanner", "score", target]
+    argv = ["syncee-scanner", "score", target]
+    if target == "products":
+        if pricing_mode:
+            argv += ["--pricing-mode", pricing_mode]
+        if target_margin is not None:
+            argv += ["--target-margin", str(target_margin)]
+        if min_margin is not None:
+            argv += ["--min-margin", str(min_margin)]
+    return argv
 
 
 def select_argv(target: str) -> list[str] | None:
