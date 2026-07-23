@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from ..config import AppConfig
 from ..models import MarginStatus
+from ..pricing import fx as fxmod
 
 
 @dataclass
@@ -36,8 +37,14 @@ def _proposed_retail(product: dict) -> float | None:
     return None
 
 
-def compute_margin(product: dict, config: AppConfig) -> MarginResult:
+def compute_margin(
+    product: dict, config: AppConfig, fx: fxmod.FxRates | None = None
+) -> MarginResult:
     """Compute margin for a product (spec §23.1–§23.4).
+
+    All monetary inputs are converted from the product's source ``currency`` to EUR first
+    (via ``fx``, defaulting to the process-active rates) so cost, RRP and shipping share one
+    basis — otherwise a foreign-currency price is wrongly treated as EUR (spec §23).
 
     Price and retail are required. When the shipping cost is unknown (Syncee's list API
     doesn't expose it) we optionally *estimate* it as a configured percentage of the
@@ -45,9 +52,18 @@ def compute_margin(product: dict, config: AppConfig) -> MarginResult:
     ``shipping_estimated`` (spec §23.4 is relaxed via ``margin.estimate_shipping_when_unknown``).
     """
     m = config.margin
-    supplier_price = product.get("supplier_price")
-    shipping_cost = product.get("shipping_cost")
-    retail = _proposed_retail(product)
+    fx = fx if fx is not None else fxmod.active()
+    ccy = product.get("currency")
+
+    def to_eur(value: float | None) -> float | None:
+        if value is None or fx is None:
+            return value
+        converted = fx.convert(value, ccy)
+        return converted if converted is not None else value  # unknown ccy → best effort
+
+    supplier_price = to_eur(product.get("supplier_price"))
+    shipping_cost = to_eur(product.get("shipping_cost"))
+    retail = to_eur(_proposed_retail(product))
 
     # Without price or retail we can't estimate anything -> Incomplete (spec §23.4).
     if supplier_price is None or retail is None:

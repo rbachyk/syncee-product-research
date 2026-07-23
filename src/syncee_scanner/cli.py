@@ -160,6 +160,17 @@ def _review_persistence(config: AppConfig, *, dry_run: bool = False):
     return persistence
 
 
+def _activate_fx(config: AppConfig) -> None:
+    """Load today's EUR exchange rates (cached daily) and make them active for margin."""
+    from .pricing import fx
+
+    rates = fx.load_rates(config.currency)
+    fx.set_active(rates)
+    typer.echo(
+        f"FX rates: {rates.source} ({len(rates.to_eur)} currencies, base {config.currency.target})"
+    )
+
+
 def _print_kv(title: str, data: dict) -> None:
     typer.secho(title, fg=typer.colors.GREEN, bold=True)
     for k, v in data.items():
@@ -525,6 +536,7 @@ def pipeline(
     if what != "initial":
         _not_implemented("later", f"pipeline {what}")
     cfg = _load(config, debug)
+    _activate_fx(cfg)  # EUR conversion for the rescore step
     from .pipeline import run_initial_pipeline
 
     try:
@@ -577,6 +589,7 @@ def cmd_score_products(
 ):
     """Product hard gates + margin + weighted scoring + classification (spec §22-§25)."""
     cfg = _load(config, debug)
+    _activate_fx(cfg)  # convert supplier prices to EUR with today's rates before margin
     from .scoring.service import score_products
 
     try:

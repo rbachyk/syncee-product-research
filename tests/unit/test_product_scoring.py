@@ -38,6 +38,33 @@ def good_product(**over) -> dict:
     return base
 
 
+class TestMarginFx:
+    def test_foreign_currency_converted_to_eur(self):
+        from syncee_scanner.pricing.fx import FxRates
+
+        fx = FxRates(to_eur={"HUF": 0.0025, "EUR": 1.0})
+        # A "simple" product priced in forints: 4000 HUF wholesale ≈ €10.
+        huf = good_product(
+            currency="HUF", supplier_price=4000.0, shipping_cost=2000.0,
+            shipping_cost_known=True, suggested_retail_price=4000.0, proposed_retail_price=None,
+        )
+        converted = compute_margin(huf, cfg(), fx=fx)
+        raw = compute_margin(huf, cfg(), fx=None)  # no conversion = the old bug
+
+        # Converted retail is a sane EUR figure (~€40s), not the ~€17k the raw path produces.
+        assert converted.proposed_retail_price < 100
+        assert raw.proposed_retail_price > 1000
+        assert converted.landed_cost is not None and converted.landed_cost < 30
+
+    def test_unknown_currency_falls_back_to_no_conversion(self):
+        from syncee_scanner.pricing.fx import FxRates
+
+        fx = FxRates(to_eur={"EUR": 1.0})  # no rate for "ZZZ"
+        p = good_product(currency="ZZZ", supplier_price=5.0, proposed_retail_price=None)
+        m = compute_margin(p, cfg(), fx=fx)
+        assert m.status != MarginStatus.INCOMPLETE  # best-effort, still scores
+
+
 class TestMargin:
     def test_target_met(self):
         m = compute_margin(good_product(), cfg())

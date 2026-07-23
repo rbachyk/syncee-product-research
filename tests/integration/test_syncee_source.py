@@ -277,8 +277,9 @@ class TestOffsetPagination:
         assert np["product_key"] == "pid:1540862_89947_7377516691511"
         assert np["brand"] == "CAN"
         assert np["syncee_category"] == "Kitchen Tools & Utensils"
-        # Prefer DEFAULT_CURRENCY_PRICE (retailer currency) over supplier-currency PRICE.
-        assert np["supplier_price"] == 71.4286592 and np["suggested_retail_price"] == 127.99
+        # Store the raw supplier-currency PRICE (margin converts to EUR via FX); the ambiguous
+        # DEFAULT_CURRENCY_PRICE is not used. RRP is likewise the raw supplier-currency value.
+        assert np["supplier_price"] == 102.392 and np["suggested_retail_price"] == 127.99
         # Real shipping present -> known (not estimated)
         assert np["shipping_cost"] == 0.0 and np["shipping_cost_known"] is True
         assert np["shipping_max_days"] == 14

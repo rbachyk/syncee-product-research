@@ -29,3 +29,6 @@ venv/
 # Coverage
 .coverage
 htmlcov/
+
+# FX rate cache (runtime)
+data/fx_rates.json

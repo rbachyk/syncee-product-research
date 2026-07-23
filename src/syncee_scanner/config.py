@@ -102,6 +102,18 @@ class ProductGates(BaseModel):
     exclude_keywords: list[str] = []
 
 
+class CurrencyConfig(BaseModel):
+    """Convert supplier prices (any currency) to EUR before margin (spec §23)."""
+
+    target: str = "EUR"
+    auto_update: bool = True  # fetch daily ECB rates; cache to file, refetch when stale
+    provider_url: str = "https://api.frankfurter.app/latest?base=EUR"
+    cache_path: str = "data/fx_rates.json"
+    max_age_hours: float = 24
+    # EUR value of 1 unit — used only if the live fetch fails. Live rates override these.
+    fallback_rates: dict[str, float] = Field(default_factory=dict)
+
+
 class MarginConfig(BaseModel):
     minimum_margin_pct: float = 45
     target_margin_pct: float = 55
@@ -392,6 +404,7 @@ class AppConfig(BaseModel):
     markets: MarketsConfig = Field(default_factory=MarketsConfig)
     supplier_gates: SupplierGates = Field(default_factory=SupplierGates)
     product_gates: ProductGates = Field(default_factory=ProductGates)
+    currency: CurrencyConfig = Field(default_factory=CurrencyConfig)
     margin: MarginConfig = Field(default_factory=MarginConfig)
     supplier_scoring: WeightedScoring
     product_scoring: WeightedScoring

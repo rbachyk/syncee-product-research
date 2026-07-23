@@ -138,6 +138,43 @@ product_gates:
     - "\\b(necklace|halskette|bracelet|earrings?|pendant|schmuck|jewell?ery|\\bring\\b(?! holder)|brooch)\\b"
     - "\\b(christmas|weihnacht|xmas|advent|easter|oster|halloween|nativity)\\w*"
 
+# Supplier prices arrive in many currencies; convert everything to EUR before margin.
+# Live ECB rates (frankfurter.app) are fetched daily and cached; fallback_rates are only
+# used if that fetch fails. fallback_rates are EUR value of 1 unit (approximate — refresh
+# occasionally; the live fetch supersedes them on every run).
+currency:
+  target: EUR
+  auto_update: true
+  provider_url: "https://api.frankfurter.app/latest?base=EUR"
+  cache_path: "data/fx_rates.json"
+  max_age_hours: 24
+  fallback_rates:
+    EUR: 1.0
+    USD: 0.92
+    GBP: 1.17
+    CHF: 1.05
+    AUD: 0.60
+    CAD: 0.68
+    NZD: 0.56
+    SGD: 0.69
+    HKD: 0.118
+    JPY: 0.0060
+    CNY: 0.127
+    INR: 0.011
+    AED: 0.25
+    SEK: 0.088
+    NOK: 0.086
+    DKK: 0.134
+    PLN: 0.23
+    CZK: 0.040
+    HUF: 0.0026
+    RON: 0.20
+    BGN: 0.51
+    TRY: 0.028
+    ZAR: 0.050
+    MXN: 0.052
+    BRL: 0.17
+
 margin:
   minimum_margin_pct: 45
   target_margin_pct: 55

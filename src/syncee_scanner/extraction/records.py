@@ -142,10 +142,11 @@ def normalize_product(
         product_name=raw.get("name"),
         variants=variants,
     )
-    # Prefer the retailer-currency wholesale cost (comparable to retail); fall back to the
-    # supplier-currency price if the converted value is absent.
-    price = nz.normalize_price(raw.get("default_currency_price")) or nz.normalize_price(
-        raw.get("price")
+    # Store the wholesale in the supplier's own currency (same basis as RRP and shipping);
+    # margin converts all of them to EUR via daily FX (spec §23). `default_currency_price` is
+    # an unreliable pre-conversion (its currency varies by supplier), so it's only a last resort.
+    price = nz.normalize_price(raw.get("price")) or nz.normalize_price(
+        raw.get("default_currency_price")
     )
 
     # Shipping: prefer worst-case across the target markets (per-country zones), else the
