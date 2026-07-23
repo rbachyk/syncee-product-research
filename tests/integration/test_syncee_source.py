@@ -201,6 +201,33 @@ class TestOffsetPagination:
         # request_template fields are forwarded (category etc.)
         assert calls  # sanity
 
+    def test_page_mode_stops_at_max_offset(self):
+        """CJ rejects requests past item offset 6000; the source must stop before crossing it."""
+        calls = []
+
+        def transport(payload):
+            calls.append(payload["pageNum"])
+            # A bottomless category (always a full page, huge total) — only max_offset can stop it.
+            start = (payload["pageNum"] - 1) * payload["pageSize"]
+            ids = [f"P{start + i}" for i in range(payload["pageSize"])]
+            return _syncee_shape(ids, total=1_000_000)
+
+        mapping = _offset_mapping()
+        mapping.list.categories = []
+        mapping.list.paginate_by = "page"
+        mapping.list.offset_param = "pageNum"
+        mapping.list.size_param = "pageSize"
+        mapping.list.page_size = 100
+        mapping.list.max_offset = 6000
+        source = SynceeSource(transport=transport, mapper=SynceeResponseMapper(mapping))
+        pages = list(source.iter_pages())
+        # Pages 1..60 (offsets 0..5900); page 61 would sit at offset 6000 → never requested.
+        assert calls[0] == 1
+        assert calls[-1] == 60
+        assert 61 not in calls
+        assert pages[-1].has_next is False
+        assert pages[-1].meta["offset_capped"] is True
+
     def test_offset_forwards_request_template(self):
         seen = {}
 

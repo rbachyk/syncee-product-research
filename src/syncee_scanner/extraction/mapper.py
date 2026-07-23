@@ -88,6 +88,9 @@ class ListMapping(BaseModel):
     # Cap products scanned per category (0 = unlimited) so the pool stays balanced across
     # categories of very different sizes.
     per_category_limit: int = 0
+    # Hard ceiling on the *item offset* the API will serve (0 = unlimited). CJ rejects any
+    # request past offset 6000 ("the max offset is 6000"); stop the category before crossing it.
+    max_offset: int = 0
 
 
 class ProductFieldMap(BaseModel):

@@ -200,12 +200,16 @@ class SynceeSource:
                 next_pos = pos + (1 if by_page else size)
                 taken_in_cat += len(mapped.products)
                 consumed = (pos * size if by_page else next_pos)  # items fetched so far
+                # Item offset the *next* request would use (page mode: (page-1)*size).
+                next_offset = (next_pos - 1) * size if by_page else next_pos
                 total = mapped.total
                 cat_capped = per_cat_limit and taken_in_cat >= per_cat_limit
+                offset_capped = bool(list_cfg.max_offset) and next_offset >= list_cfg.max_offset
                 cat_has_more = (
                     bool(mapped.products)
                     and (total is None or consumed < total)
                     and not cat_capped
+                    and not offset_capped
                 )
                 more_categories = cat_index < len(categories) - 1
                 yield SourcePage(
@@ -213,7 +217,8 @@ class SynceeSource:
                     cursor=f"{cat_index}:{next_pos}",
                     has_next=cat_has_more or more_categories,
                     meta={"category": category, "offset": pos, "total": total,
-                          "raw_count": mapped.raw_count},
+                          "raw_count": mapped.raw_count,
+                          "offset_capped": bool(offset_capped)},
                 )
                 if not cat_has_more:
                     break

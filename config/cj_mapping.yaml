@@ -48,6 +48,7 @@ list:
     - "331F43CE-CA1D-45F2-BE2A-8AE62EC10251"   # Towels
     - "B62EE40F-7650-4715-A7A5-BA227540593C"   # Bathroom Storage
   per_category_limit: 0
+  max_offset: 6000                   # CJ rejects requests past item offset 6000 (page 60 @ size 100)
   request_template: {}
 
 product:
