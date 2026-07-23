@@ -155,7 +155,32 @@ class RestApiTransport:
             return None
         body = resp.json()
         path = self.mapping.list.detail_path  # unwrap the product object (CJ: under "data")
-        return _dig(body, path) if path else body
+        detail = _dig(body, path) if path else body
+        if isinstance(detail, dict):
+            self._attach_stock(detail)
+        return detail
+
+    def _attach_stock(self, detail: dict) -> None:
+        """Fetch real inventory (a separate per-variant call on CJ) and inject the total."""
+        lm = self.mapping.list
+        if not (lm.stock_endpoint_template and lm.stock_vid_path):
+            return
+        from .mapper import get_path  # supports numeric indices (variants.0.vid)
+        vid = get_path(detail, lm.stock_vid_path)
+        if not vid:
+            return
+        url = lm.stock_endpoint_template.replace("{vid}", str(vid))
+        self._throttle()
+        try:
+            resp = self._client.get(url, headers=self._headers())
+        except httpx.HTTPError:
+            return
+        if resp.status_code != 200:
+            return
+        rows = _dig(resp.json(), lm.stock_response_path) if lm.stock_response_path else resp.json()
+        if isinstance(rows, list) and lm.stock_sum_field:
+            total = sum(r.get(lm.stock_sum_field) or 0 for r in rows if isinstance(r, dict))
+            detail[lm.stock_target_field] = total
 
     def close(self) -> None:
         self._client.close()

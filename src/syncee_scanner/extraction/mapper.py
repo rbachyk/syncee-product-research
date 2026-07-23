@@ -62,6 +62,12 @@ class ListMapping(BaseModel):
     method: str = "GET"
     detail_endpoint_template: str | None = None  # GET, {id} placeholder; enriches candidates
     detail_path: str | None = None  # dotted path to the product in the detail response (CJ: data)
+    # Optional stock lookup during enrichment (CJ stock is a separate per-variant endpoint).
+    stock_endpoint_template: str | None = None   # GET, {vid} placeholder
+    stock_vid_path: str | None = None            # path to the variant id in detail (variants.0.vid)
+    stock_response_path: str | None = None       # path to the stock array in the response (data)
+    stock_sum_field: str | None = None           # field summed across the array (totalInventoryNum)
+    stock_target_field: str = "_stock_quantity"  # key the summed stock is injected under
     # cursor mode
     next_cursor_path: str | None = "data.pageInfo.endCursor"
     has_next_path: str | None = "data.pageInfo.hasNextPage"
@@ -77,8 +83,8 @@ class ListMapping(BaseModel):
     category_param: str = "category"
     paginate_by: Literal["offset", "page"] = "offset"
     # Offset mode: scan each of these category ids in turn (overrides request_template's
-    # `category`). Empty -> single scan using request_template as-is.
-    categories: list[int] = Field(default_factory=list)
+    # `category`). int (Syncee) or str/UUID (CJ). Empty -> single scan using the template as-is.
+    categories: list[int | str] = Field(default_factory=list)
     # Cap products scanned per category (0 = unlimited) so the pool stays balanced across
     # categories of very different sizes.
     per_category_limit: int = 0

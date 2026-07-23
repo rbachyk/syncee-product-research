@@ -19,9 +19,34 @@ list:
   total_path: "data.total"
   detail_endpoint_template: "https://developers.cjdropshipping.com/api2.0/v1/product/query?pid={id}"
   detail_path: "data"
-  # CJ category ids (UUIDs) to scan — fill with Home & Kitchen categories from /product/getCategory.
-  # Empty = the whole 1.4M catalogue (too broad); scope this before a full run.
-  categories: []
+  # Stock: CJ inventory is a separate per-variant call; sum totalInventoryNum across warehouses
+  # for the first variant and inject it as _stock_quantity (read by product.stock_quantity).
+  stock_endpoint_template: "https://developers.cjdropshipping.com/api2.0/v1/product/stock/queryByVid?vid={vid}"
+  stock_vid_path: "variants.0.vid"
+  stock_response_path: "data"
+  stock_sum_field: "totalInventoryNum"
+  # Home & Kitchen leaf categories (from /product/getCategory) mapped to RB Home's collections.
+  categories:
+    # Kitchen Convenience
+    - "23ADD7CB-065A-4A02-B8E8-43D3F041B90B"   # Kitchen Knives & Accessories
+    - "7C8E809A-460A-4F50-8A2F-B62AD010BFF8"   # Bakeware
+    - "E448A723-43DC-4BD8-A9AD-2FB9699338B4"   # Cooking Tools
+    - "56845C3D-4D9E-4729-B5D4-6D7DE310C031"   # Kitchen Storage
+    - "C1394E10-1EDF-4107-AA93-F142B44C3136"   # Storage Bottles & Jars
+    # Dining
+    - "0F4CFA22-8B97-4016-94A6-18066B9BD05C"   # Dinnerware
+    - "CF330457-0E5B-4FAF-9BAE-7D2C247BD8DE"   # Drinkware
+    - "BEDFD1CC-E7CC-438F-9050-D7737904203D"   # Barware
+    # Home Comfort (textiles / decor)
+    - "1A9A9965-A914-46D7-B8E2-49AD256F2B6B"   # Curtains
+    - "2601070550351602500"                     # Floor Mats
+    - "300CC260-CF9D-4AEA-9FC2-6C8DB8A35B51"   # Cushion Covers
+    - "36F37524-3EAF-4E20-B989-10137FD0ED70"   # Comforters
+    - "496E6FFC-4BC4-4CA6-8225-5BC0D56E8E11"   # Bedding Sets
+    - "6939DA08-F7F8-48FB-A7E8-169AEAC92404"   # Pillows
+    # Bathroom
+    - "331F43CE-CA1D-45F2-BE2A-8AE62EC10251"   # Towels
+    - "B62EE40F-7650-4715-A7A5-BA227540593C"   # Bathroom Storage
   per_category_limit: 0
   request_template: {}
 
@@ -41,6 +66,8 @@ product:
   images: "productImageSet"          # list of image URLs (detail); list view has single productImage
   main_image: "productImage"         # single URL in list view; a list in detail → falls back to images[0]
   variants: "variants"               # detail: [{variantSku, variantSellPrice, variantSugSellPrice, ...}]
+  stock_quantity: "_stock_quantity"  # injected by the transport from the stock endpoint (enrich)
+  stock_status: null                 # derived from quantity; CJ has no status field
   ships_from: null                   # CJ ships from CN / overseas warehouses (see shippingCountryCodes)
 
 # CJ *is* the supplier — one constant supplier for every product (no per-product supplier).
