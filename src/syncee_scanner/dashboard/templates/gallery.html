@@ -89,6 +89,14 @@
 
 <header>
   <form method="get" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+    {% if source_names %}
+    <label class="f">Source
+      <select name="source" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for s in source_names %}<option value="{{s}}" {{'selected' if s==sel_source}}>{{s}}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
     <label class="f">Collection
       <select name="collection" onchange="this.form.submit()">
         <option value="">All</option>

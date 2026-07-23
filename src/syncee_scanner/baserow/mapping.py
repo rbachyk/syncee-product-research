@@ -68,6 +68,8 @@ def supplier_upsert_record(
         "Active": bool(normalized.get("active", True)),
         "Raw Data": _raw_json(raw),
     }
+    if normalized.get("source"):  # multi-source tag (omit if absent → never clobbers)
+        fields["Source"] = normalized["source"]
     if scan_run_row_id is not None:
         fields["Last Scan Run"] = [scan_run_row_id]
 
@@ -135,6 +137,8 @@ def product_upsert_record(
         "Active": bool(normalized.get("active", True)),
         "Raw Data": _raw_json(raw),
     }
+    if normalized.get("source"):  # multi-source tag (omit if absent → never clobbers)
+        fields["Source"] = normalized["source"]
     if scan_run_row_id is not None:
         fields["Last Scan Run"] = [scan_run_row_id]
 

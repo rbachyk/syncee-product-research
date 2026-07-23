@@ -130,8 +130,8 @@ def _supplier_names(conn) -> dict[str, str]:
 def gallery(
     request: Request, collection: str = "", status: str = "", selection: str = "",
     enriched: str = "", ships_from: list[str] = _SHIPS_FROM_Q, supplier: str = "",
-    max_vs_rrp: str = "", min_margin: str = "", viable: str = "", q: str = "",
-    sort: str = "score", group: str = "none",
+    max_vs_rrp: str = "", min_margin: str = "", viable: str = "", source: str = "",
+    q: str = "", sort: str = "score", group: str = "none",
 ):
     """Product gallery: filter (collection/review/selection/enriched/ships-from/supplier/search)."""
     sort = sort if sort in SORTS else "score"
@@ -140,6 +140,9 @@ def gallery(
     if collection:
         where.append("data->>'Collection' = %s")
         params.append(collection)
+    if source:
+        where.append("data->>'Source' = %s")
+        params.append(source)
     if status:
         where.append("data->>'Review Status' = %s")
         params.append(status)
@@ -197,6 +200,9 @@ def gallery(
                     "WHERE data->>'Ships From' IS NOT NULL AND data->>'Ships From' <> '' "
                     "GROUP BY 1 ORDER BY 2 DESC")
         ship_countries = [{"name": r[0], "n": r[1]} for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT data->>'Source' FROM products "
+                    "WHERE data->>'Source' IS NOT NULL ORDER BY 1")
+        source_names = [r[0] for r in cur.fetchall()]
         # Counts for the quick-view chips (whole catalogue, ignoring current filters).
         cur.execute(
             "SELECT count(*), "
@@ -243,7 +249,7 @@ def gallery(
     return _TEMPLATES.TemplateResponse(request, "gallery.html", {
         "products": products, "collections": COLLECTIONS, "statuses": statuses,
         "selections": selections, "sorts": SORTS, "groups": GROUPS, "quick_views": quick_views,
-        "ship_countries": ship_countries,
+        "ship_countries": ship_countries, "source_names": source_names, "sel_source": source,
         "sel_collection": collection, "sel_status": status, "sel_selection": selection,
         "sel_enriched": enriched, "sel_ships_from": ships_from, "sel_supplier": supplier,
         "sel_max_vs_rrp": max_vs_rrp, "sel_min_margin": min_margin,
@@ -457,13 +463,16 @@ def _stats() -> dict:
 def control(request: Request):
     from ..config import load_config
 
-    m = load_config().margin
+    cfg = load_config()
+    m = cfg.margin
     pricing = {"mode": m.pricing_mode, "target_margin": m.target_margin_pct,
                "markup": m.markup_multiple, "min_margin": m.minimum_margin_pct,
                "modes": ["rrp", "target_margin", "markup"]}
+    sources = [{"name": n, "label": s.label} for n, s in cfg.sources.items() if s.enabled]
     return _TEMPLATES.TemplateResponse(request, "control.html", {
         "stats": _stats(), "active": jobs.active_job(), "recent": jobs.recent_jobs(),
-        "collections": COLLECTIONS, "pricing": pricing, "authed": auth.auth_enabled(),
+        "collections": COLLECTIONS, "pricing": pricing, "sources": sources,
+        "authed": auth.auth_enabled(),
     })
 
 
@@ -565,21 +574,23 @@ def runs_list(request: Request):
 
 
 @app.post("/jobs/scan")
-def start_scan(category: str = Form("")):
-    _, err = jobs.start_job("scan", jobs.scan_argv(category.strip() or None),
-                            {"category": category.strip()})
+def start_scan(category: str = Form(""), source: str = Form("")):
+    argv = jobs.scan_argv(category.strip() or None, source.strip() or None)
+    _, err = jobs.start_job("scan", argv, {"category": category.strip(), "source": source.strip()})
     return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
 
 
 @app.post("/jobs/enrich")
 def start_enrich(limit: str = Form(""), collection: str = Form(""),
-                 reenrich: str = Form("")):
+                 reenrich: str = Form(""), source: str = Form("")):
     try:
         lim = int(limit) if limit.strip() else None
     except ValueError:
         lim = None
-    argv = jobs.enrich_argv(lim, reenrich=bool(reenrich), collection=collection.strip() or None)
-    params = {"limit": lim, "collection": collection.strip(), "reenrich": bool(reenrich)}
+    argv = jobs.enrich_argv(lim, reenrich=bool(reenrich), collection=collection.strip() or None,
+                            source=source.strip() or None)
+    params = {"limit": lim, "collection": collection.strip(), "reenrich": bool(reenrich),
+              "source": source.strip()}
     _, err = jobs.start_job("enrich", argv, params)
     return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
 

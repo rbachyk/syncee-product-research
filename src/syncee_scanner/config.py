@@ -71,6 +71,27 @@ class SynceeConfig(BaseModel):
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
 
+class RestApiConfig(BaseModel):
+    """Config for an API-based source's REST transport (CJ, BigBuy, …)."""
+
+    base_url: str = ""
+    auth_header: str | None = None   # header carrying the token, e.g. "CJ-Access-Token"
+    auth_env: str | None = None      # env var the token is read from (never hard-coded)
+    extra_headers: dict[str, str] = Field(default_factory=dict)
+
+
+class SourceConfig(BaseModel):
+    """One product source (Syncee, CJ, BigBuy, …). The mapping YAML makes the field paths
+    declarative; the transport says how the data is fetched (spec §8.4 extraction seam)."""
+
+    label: str                                     # human name shown in the UI / stamped on rows
+    mapping: str                                   # path to this source's mapping YAML
+    transport: Literal["syncee", "rest"] = "rest"  # how pages are fetched
+    key_prefix: str = ""                           # namespaces keys across sources ('' = syncee)
+    enabled: bool = True
+    api: RestApiConfig = Field(default_factory=RestApiConfig)
+
+
 class BaserowSettings(BaseModel):
     create_batch_size: int = 100
     update_batch_size: int = 100
@@ -400,6 +421,13 @@ class PublishingConfig(BaseModel):
 
 class AppConfig(BaseModel):
     scanner_version: str = "0.1.0"
+    default_source: str = "syncee"
+    sources: dict[str, SourceConfig] = Field(default_factory=lambda: {
+        "syncee": SourceConfig(
+            label="Syncee", mapping="config/syncee_mapping.yaml",
+            transport="syncee", key_prefix="",  # keep existing Syncee keys unchanged
+        ),
+    })
     syncee: SynceeConfig = Field(default_factory=SynceeConfig)
     baserow: BaserowSettings = Field(default_factory=BaserowSettings)
     markets: MarketsConfig = Field(default_factory=MarketsConfig)

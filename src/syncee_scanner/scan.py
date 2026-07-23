@@ -75,6 +75,7 @@ def run_scan(
     limit: int | None = None,
     start_cursor: str | None = None,
     resume_run: RunHandle | None = None,
+    source_meta=None,
 ) -> ScanSummary:
     """Run a (possibly limited) catalog scan end to end (spec §17.3)."""
     run = resume_run or persistence.create_run(
@@ -101,7 +102,7 @@ def run_scan(
             subcategory = _page_subcategory(page, config)
             batch, last_key = _normalize_page(
                 page, products_remaining, counts, run, subcategory,
-                config.markets.target_codes,
+                config.markets.target_codes, source_meta,
             )
 
             # Suppliers first so links resolve (spec §17.3 steps 7-8).
@@ -184,13 +185,20 @@ def _page_subcategory(page, config: AppConfig) -> str | None:
 
 def _normalize_page(
     page, products_remaining, counts, run: RunHandle, subcategory: str | None = None,
-    target_codes: list[str] | None = None,
+    target_codes: list[str] | None = None, source_meta=None,
 ) -> tuple[_PageBatch, str | None]:
-    """Normalize a page's products + their embedded suppliers (spec §18)."""
+    """Normalize a page's products + their embedded suppliers (spec §18).
+
+    ``source_meta`` (label + key prefix) namespaces keys and stamps the source so multiple
+    sources coexist; ``None`` = the default (unprefixed) source, preserving existing behaviour.
+    """
     batch = _PageBatch()
     supplier_by_key: dict[str, dict] = {}
     last_key: str | None = None
     taken = 0
+
+    def _key(base: str) -> str:
+        return source_meta.key(base) if source_meta else base
 
     for raw in page.products:
         if products_remaining is not None and taken >= products_remaining:
@@ -198,12 +206,18 @@ def _normalize_page(
         try:
             raw_supplier = raw.get("supplier") or {}
             norm_supplier = normalize_supplier(raw_supplier)
-            skey = norm_supplier["supplier_key"]
+            skey = _key(norm_supplier["supplier_key"])
+            norm_supplier["supplier_key"] = skey
+            if source_meta:
+                norm_supplier["source"] = source_meta.label
             supplier_by_key[skey] = (norm_supplier, raw_supplier)
 
             norm_product = normalize_product(
                 raw, supplier_key_value=skey, target_codes=target_codes
             )
+            norm_product["product_key"] = _key(norm_product["product_key"])
+            if source_meta:
+                norm_product["source"] = source_meta.label
             # Stamp the scanned subcategory so classification can map it reliably.
             if subcategory and not norm_product.get("syncee_subcategory"):
                 norm_product["syncee_subcategory"] = subcategory

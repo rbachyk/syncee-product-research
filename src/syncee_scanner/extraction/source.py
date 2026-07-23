@@ -177,38 +177,41 @@ class SynceeSource:
         list_cfg = self.mapper.mapping.list
         size = list_cfg.page_size
         template = dict(list_cfg.request_template or {})
-        categories = list_cfg.categories or [template.get("category")]
+        categories = list_cfg.categories or [template.get(list_cfg.category_param)]
+        by_page = list_cfg.paginate_by == "page"
+        first_pos = 1 if by_page else 0  # 1-based page numbers vs 0-based item offset
 
         per_cat_limit = list_cfg.per_category_limit or 0
         start_cat, start_offset = _parse_offset_cursor(start_cursor)
         page_number = 0
         for cat_index in range(start_cat, len(categories)):
             category = categories[cat_index]
-            offset = start_offset if cat_index == start_cat else 0
+            pos = start_offset if cat_index == start_cat else first_pos
             taken_in_cat = 0
             while page_number < self.max_pages:
                 page_number += 1
-                payload = {**template, "from": offset, "size": size}
+                payload = {**template, list_cfg.offset_param: pos, list_cfg.size_param: size}
                 if category is not None:
-                    payload["category"] = category
+                    payload[list_cfg.category_param] = category
                 mapped = self.mapper.map_response(self._transport(payload))
-                next_offset = offset + size
+                next_pos = pos + (1 if by_page else size)
                 taken_in_cat += len(mapped.products)
+                consumed = (pos * size if by_page else next_pos)  # items fetched so far
                 total = mapped.total
                 cat_capped = per_cat_limit and taken_in_cat >= per_cat_limit
                 cat_has_more = (
                     bool(mapped.products)
-                    and (total is None or next_offset < total)
+                    and (total is None or consumed < total)
                     and not cat_capped
                 )
                 more_categories = cat_index < len(categories) - 1
                 yield SourcePage(
                     page_number=page_number, products=mapped.products,
-                    cursor=f"{cat_index}:{next_offset}",
+                    cursor=f"{cat_index}:{next_pos}",
                     has_next=cat_has_more or more_categories,
-                    meta={"category": category, "offset": offset, "total": total,
+                    meta={"category": category, "offset": pos, "total": total,
                           "raw_count": mapped.raw_count},
                 )
                 if not cat_has_more:
                     break
-                offset = next_offset
+                pos = next_pos

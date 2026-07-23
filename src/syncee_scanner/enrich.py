@@ -58,9 +58,12 @@ def _supplier_enrich_fields(ns: dict, raw_supplier: dict) -> dict:
 
 def _select_targets(
     persistence, *, product_keys, top, review_status, per_supplier_cap, max_retail=None,
-    skip_enriched=False, collection=None, limit=None,
+    skip_enriched=False, collection=None, limit=None, source_label=None,
 ) -> list[dict]:
     rows = list(persistence.iter_products())
+    if source_label is not None:
+        # Only enrich this source's products (they need that source's detail API).
+        rows = [r for r in rows if r.get("Source") == source_label]
     if product_keys is not None:
         keyset = set(product_keys)
         rows = [r for r in rows if r.get("Product Key") in keyset]
@@ -110,6 +113,7 @@ def enrich_products(
     skip_enriched: bool = False,
     collection: str | None = None,
     limit: int | None = None,
+    source_label: str | None = None,
 ) -> EnrichResult:
     """Enrich products with detail data (spec §5.4). Returns a summary.
 
@@ -127,6 +131,7 @@ def enrich_products(
         persistence, product_keys=product_keys, top=top, review_status=review_status,
         per_supplier_cap=per_supplier_cap, max_retail=max_retail,
         skip_enriched=skip_enriched, collection=collection, limit=limit,
+        source_label=source_label,
     )
     log.info("enrich.started", targets=len(targets))
     result = EnrichResult()

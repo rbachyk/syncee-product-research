@@ -264,15 +264,18 @@ def _write_log(conn: psycopg.Connection, job_id: int, buf: list[str]) -> None:
 
 # --- argv builders (the only commands the dashboard may launch) --------------------
 
-def scan_argv(category: str | None) -> list[str]:
+def scan_argv(category: str | None, source: str | None = None) -> list[str]:
     argv = ["syncee-scanner", "scan", "full"]
     if category:
         argv += ["--category", category]
+    if source:
+        argv += ["--source", source]
     return argv
 
 
 def enrich_argv(
-    limit: int | None, *, reenrich: bool = False, collection: str | None = None
+    limit: int | None, *, reenrich: bool = False, collection: str | None = None,
+    source: str | None = None,
 ) -> list[str]:
     argv = ["syncee-scanner", "enrich"]
     if limit:
@@ -281,6 +284,8 @@ def enrich_argv(
         argv += ["--collection", collection]
     if reenrich:
         argv += ["--reenrich"]
+    if source:
+        argv += ["--source", source]
     return argv
 
 

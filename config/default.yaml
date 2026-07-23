@@ -3,6 +3,27 @@
 
 scanner_version: "0.1.0"
 
+# Product sources. Each is a declarative mapping YAML + a transport. Adding a source (CJ,
+# BigBuy, …) = fill in its mapping + api block here — no core code changes. Products are
+# stamped with the source `label` and keys namespaced by `key_prefix` so sources never collide.
+default_source: syncee
+sources:
+  syncee:
+    label: Syncee
+    mapping: config/syncee_mapping.yaml
+    transport: syncee          # cookie-authenticated browser transport
+    key_prefix: ""             # keep existing Syncee keys unchanged
+  cj:
+    label: CJdropshipping
+    mapping: config/cj_mapping.yaml
+    transport: rest            # generic REST API transport (api block below)
+    key_prefix: cj
+    enabled: true
+    api:
+      base_url: "https://developers.cjdropshipping.com/api2.0/v1"
+      auth_header: "CJ-Access-Token"   # header the token is sent in
+      auth_env: "CJ_API_KEY"           # token read from this env var (set in .env)
+
 syncee:
   category: "Home & Kitchen"
   base_url: "https://syncee.com"

@@ -94,8 +94,13 @@
     <h2>Download (scan)</h2>
     <p class="muted" style="margin-top:0">Pull the catalogue from Syncee into Postgres. Runs headless; needs a valid auth session.</p>
     <form method="post" action="/jobs/scan" class="row">
+      {% if sources|length > 1 %}
+      <label class="f">Source
+        <select name="source">{% for s in sources %}<option value="{{s.name}}">{{s.label}}</option>{% endfor %}</select>
+      </label>
+      {% endif %}
       <label class="f">Category (optional)
-        <input name="category" placeholder="e.g. Home &amp; Kitchen" style="min-width:220px">
+        <input name="category" placeholder="e.g. Home &amp; Kitchen" style="min-width:200px">
       </label>
       <button type="submit" {{ 'disabled' if active }}>Start scan</button>
       <button type="submit" formaction="/jobs/validate" style="background:#666" {{ 'disabled' if active }}>Check session</button>
@@ -107,6 +112,11 @@
     <h2>Enrich</h2>
     <p class="muted" style="margin-top:0">Fetch real shipping/description/stock. Skips already-enriched — repeat until 0 left.</p>
     <form method="post" action="/jobs/enrich" class="row">
+      {% if sources|length > 1 %}
+      <label class="f">Source
+        <select name="source"><option value="">All</option>{% for s in sources %}<option value="{{s.name}}">{{s.label}}</option>{% endfor %}</select>
+      </label>
+      {% endif %}
       <label class="f">Chunk size
         <input name="limit" type="number" min="1" placeholder="all" style="width:100px">
       </label>

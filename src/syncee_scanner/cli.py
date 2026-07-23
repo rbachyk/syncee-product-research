@@ -257,6 +257,9 @@ def scan_full(
     fixture: str | None = typer.Option(
         None, "--fixture", help="Scan a saved JSON fixture instead of live Syncee (offline)."
     ),
+    source: str | None = typer.Option(
+        None, "--source", help="Which source to scan (syncee, cj, …). Default: config default."
+    ),
     debug: bool = typer.Option(False, "--debug"),
 ):
     """Full Home & Kitchen scan (spec §17). Use --fixture for an offline smoke test."""
@@ -264,13 +267,14 @@ def scan_full(
     if category:
         cfg.syncee.category = category
     try:
-        source = _make_source(cfg, fixture)
+        src, meta = _make_source_meta(cfg, fixture, source)
+        typer.echo(f"Source: {meta.label} ({meta.name})")
         persistence, backend = _build_persistence(cfg, dry_run=dry_run)
         typer.echo(f"Persistence: {backend}{' (dry-run)' if dry_run else ''}")
         from .scan import run_scan
 
-        summary = run_scan(cfg, source=source, persistence=persistence,
-                           run_type=RunType.FULL_SCAN, limit=limit)
+        summary = run_scan(cfg, source=src, persistence=persistence,
+                           run_type=RunType.FULL_SCAN, limit=limit, source_meta=meta)
         _print_summary(summary)
     except ScannerError as exc:
         _fail(exc)
@@ -351,19 +355,17 @@ def scan_reconcile(
         _fail(exc)
 
 
-def _make_source(cfg: AppConfig, fixture: str | None):
-    from .extraction.source import FixtureSource, SynceeSource
+def _make_source(cfg: AppConfig, fixture: str | None, source: str | None = None):
+    """Build a source by name (multi-source). Returns just the source (back-compat)."""
+    src, _meta = _make_source_meta(cfg, fixture, source)
+    return src
 
-    if fixture:
-        return FixtureSource.from_file(Path(fixture))
 
-    # Live: declarative mapper + cookie-authenticated API transport (spec §5.4, §8.4).
-    from .browser.transport import SynceeApiTransport
-    from .extraction.mapper import SynceeResponseMapper, load_mapping
+def _make_source_meta(cfg: AppConfig, fixture: str | None, source: str | None = None):
+    """Build ``(source, SourceMeta)`` for the named source via the factory (spec §8.4)."""
+    from .extraction.factory import build_source
 
-    mapping = load_mapping()
-    transport = SynceeApiTransport(cfg, mapping)  # raises CONFIGURATION_ERROR until endpoint set
-    return SynceeSource(cfg, transport=transport, mapper=SynceeResponseMapper(mapping))
+    return build_source(cfg, source, fixture=fixture)
 
 
 def _make_transport(cfg: AppConfig):
@@ -491,6 +493,9 @@ def enrich(
     reenrich: bool = typer.Option(
         False, "--reenrich", help="Re-enrich products already enriched (default: skip them)."
     ),
+    source: str | None = typer.Option(
+        None, "--source", help="Only enrich this source's products, via its API (syncee, cj, …)."
+    ),
     debug: bool = typer.Option(False, "--debug"),
 ):
     """Fetch product detail (real shipping/description/stock) — all products by default.
@@ -501,17 +506,18 @@ def enrich(
     """
     cfg = _load(config, debug)
     from .enrich import enrich_products
-    from .extraction.mapper import SynceeResponseMapper, load_mapping
+    from .extraction.factory import build_transport
 
     try:
         persistence = _review_persistence(cfg)
-        transport = _make_transport(cfg)
+        transport, mapper, meta = build_transport(cfg, source)
+        source_label = meta.label if source else None  # filter to this source only when given
         statuses = {"Shortlisted"} if shortlisted_only else None
         try:
             result = enrich_products(
-                persistence, transport, cfg, SynceeResponseMapper(load_mapping()),
+                persistence, transport, cfg, mapper,
                 top=top, review_status=statuses, collection=collection,
-                limit=limit, skip_enriched=not reenrich,
+                limit=limit, skip_enriched=not reenrich, source_label=source_label,
             )
         finally:
             transport.close()

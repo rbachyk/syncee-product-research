@@ -68,6 +68,13 @@ class ListMapping(BaseModel):
     page_size: int = 100
     total_path: str | None = None
     request_template: dict | None = None
+    # Pagination param names differ by API (Syncee: from/size/category; CJ: pageNum/pageSize/
+    # categoryId). paginate_by "offset" => position is an item offset (next += size);
+    # "page" => position is a 1-based page number (next += 1).
+    offset_param: str = "from"
+    size_param: str = "size"
+    category_param: str = "category"
+    paginate_by: Literal["offset", "page"] = "offset"
     # Offset mode: scan each of these category ids in turn (overrides request_template's
     # `category`). Empty -> single scan using request_template as-is.
     categories: list[int] = Field(default_factory=list)

@@ -89,6 +89,7 @@ SUPPLIERS = TableDef(
     T_SUPPLIERS,
     [
         FieldDef("Supplier Key", FieldType.TEXT, required=True, primary=True),
+        FieldDef("Source", FieldType.TEXT),  # multi-source origin (Syncee, CJ, …)
         FieldDef("Syncee Supplier ID", FieldType.TEXT),
         FieldDef("Supplier Name", FieldType.TEXT, required=True),
         FieldDef("Supplier URL", FieldType.URL, required=True),
@@ -139,6 +140,7 @@ PRODUCTS = TableDef(
     T_PRODUCTS,
     [
         FieldDef("Product Key", FieldType.TEXT, required=True, primary=True),
+        FieldDef("Source", FieldType.TEXT),  # multi-source origin (Syncee, CJ, …)
         FieldDef("Syncee Product ID", FieldType.TEXT),
         FieldDef("Product Name", FieldType.TEXT, required=True),
         FieldDef("Product URL", FieldType.URL, required=True),
