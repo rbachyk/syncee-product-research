@@ -28,6 +28,9 @@ services:
 
   dashboard:
     build: .
+    # Shared image name so dashboard + scanner are ALWAYS the same build — otherwise Compose
+    # builds a separate image per service and rebuilding one leaves the other stale.
+    image: rbhome-syncee:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -59,6 +62,7 @@ services:
   # exports, and debug artifacts so they survive container restarts.
   scanner:
     build: .
+    image: rbhome-syncee:latest   # same image as dashboard — one build, never out of sync
     depends_on:
       db:
         condition: service_healthy
