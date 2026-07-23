@@ -90,8 +90,13 @@ def compute_margin(
         else:
             proposed = (supplier_price + shipping_cost) / denom
     elif m.pricing_mode == "markup":
-        # Markup on the full cost (supplier + shipping), so the price always covers cost.
-        proposed = (supplier_price + shipping_cost) * m.markup_multiple
+        # Markup on the FULL landed cost (supplier + shipping + fees). Fees are a % of the
+        # price, so solve the circular relation price = markup·(cost + fees):
+        #   price = markup·(supplier+shipping) / (1 − markup·fee_rate).
+        # This makes margin predictable: margin% = 1 − 1/markup (e.g. 1.6 → 37.5%, 2.0 → 50%).
+        base = supplier_price + shipping_cost
+        denom = 1 - m.markup_multiple * fee_rate
+        proposed = base * m.markup_multiple / denom if denom > 0 else base * m.markup_multiple
     else:  # "rrp" — sell at the market price (optionally undercut a bit)
         proposed = market_rrp * (1 - m.rrp_discount_pct / 100)
     if proposed is None or proposed <= 0:
