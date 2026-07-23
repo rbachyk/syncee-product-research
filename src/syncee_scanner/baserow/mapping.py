@@ -77,7 +77,8 @@ def supplier_upsert_record(
         "First Seen At": now,
         "Hard Gate Status": HardGateStatus.UNSCORED.value,
         "Eligibility Status": SupplierEligibility.UNSCORED.value,
-        "Manual Override": ManualOverride.NONE.value,
+        # Single-source platforms (CJ/BigBuy) can pre-approve themselves via the mapping.
+        "Manual Override": normalized.get("manual_override") or ManualOverride.NONE.value,
     }
     changed_extra = {"Last Changed At": now}
     touch = {"Last Seen At": now}

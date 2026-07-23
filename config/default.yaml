@@ -21,8 +21,15 @@ sources:
     enabled: true
     api:
       base_url: "https://developers.cjdropshipping.com/api2.0/v1"
-      auth_header: "CJ-Access-Token"   # header the token is sent in
-      auth_env: "CJ_API_KEY"           # token read from this env var (set in .env)
+      auth_header: "CJ-Access-Token"
+      # CJ mints a short-lived access token from email + API key; cached to avoid re-minting.
+      auth_url: "https://developers.cjdropshipping.com/api2.0/v1/authentication/getAccessToken"
+      auth_email_env: "CJ_API_EMAIL"
+      auth_env: "CJ_API_KEY"
+      token_path: "data.accessToken"
+      token_cache: "data/cj_token.json"
+      token_ttl_hours: 240
+      min_interval_seconds: 1.1   # CJ QPS limit is 1 request/second
 
 syncee:
   category: "Home & Kitchen"

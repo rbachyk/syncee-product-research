@@ -32,3 +32,6 @@ htmlcov/
 
 # FX rate cache (runtime)
 data/fx_rates.json
+
+# CJ access-token cache (runtime)
+data/cj_token.json

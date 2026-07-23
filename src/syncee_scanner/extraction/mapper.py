@@ -61,6 +61,7 @@ class ListMapping(BaseModel):
     endpoint_template: str | None = None
     method: str = "GET"
     detail_endpoint_template: str | None = None  # GET, {id} placeholder; enriches candidates
+    detail_path: str | None = None  # dotted path to the product in the detail response (CJ: data)
     # cursor mode
     next_cursor_path: str | None = "data.pageInfo.endCursor"
     has_next_path: str | None = "data.pageInfo.hasNextPage"
@@ -103,6 +104,7 @@ class ProductFieldMap(BaseModel):
     subcategory: str | None = "subcategory"
     description: str | None = "description"
     currency: str | None = "currency"
+    currency_default: str | None = None  # used when the currency path is empty (e.g. CJ = USD)
     price: str | None = "price"
     default_currency_price: str | None = None  # cost in retailer currency (preferred)
     suggested_retail_price: str | None = "rrp"
@@ -123,8 +125,13 @@ class ProductFieldMap(BaseModel):
 
 
 class SupplierFieldMap(BaseModel):
-    """Dotted paths (relative to one product object) for the nested supplier."""
+    """Dotted paths (relative to one product object) for the nested supplier.
 
+    Single-supplier sources (CJ, BigBuy — the platform *is* the supplier) set ``constant`` to a
+    fixed supplier dict used for every product, instead of extracting one per product.
+    """
+
+    constant: dict | None = None
     id: str = "supplier.id"
     name: str = "supplier.name"
     url: str | None = "supplier.url"
@@ -212,33 +219,12 @@ class SynceeResponseMapper:
             url = pm.url_template.replace("{id}", str(product_id))
         else:
             url = get_path(product, pm.url)
-        return {
-            "id": product_id,
-            "name": get_path(product, pm.name),
-            "url": url,
-            "sku": get_path(product, pm.sku),
-            "brand": get_path(product, pm.brand),
-            "category": get_path(product, pm.category),
-            "subcategory": get_path(product, pm.subcategory),
-            "description": get_path(product, pm.description),
-            "currency": get_path(product, pm.currency),
-            "price": get_path(product, pm.price),
-            "default_currency_price": get_path(product, pm.default_currency_price),
-            "suggested_retail_price": get_path(product, pm.suggested_retail_price),
-            "shipping_cost": get_path(product, pm.shipping_cost),
-            "shipping_min_days": get_path(product, pm.shipping_min_days),
-            "shipping_max_days": get_path(product, pm.shipping_max_days),
-            "shipping_zones": get_path(product, pm.shipping_zones),
-            "stock_status": get_path(product, pm.stock_status),
-            "stock_quantity": get_path(product, pm.stock_quantity),
-            "images": images,
-            "main_image": get_path(product, pm.main_image),
-            "variants": get_path(product, pm.variants, default=[]) or [],
-            "ships_from": get_path(product, pm.ships_from),
-            "added_at": get_path(product, pm.added_at),
-            "updated_at": get_path(product, pm.updated_at),
-            "active": get_path(product, pm.active),
-            "supplier": {
+
+        # Single-supplier sources (CJ/BigBuy) use one constant supplier for every product.
+        if sm.constant is not None:
+            supplier = dict(sm.constant)
+        else:
+            supplier = {
                 "id": get_path(product, sm.id),
                 "name": get_path(product, sm.name),
                 "url": get_path(product, sm.url),
@@ -255,5 +241,32 @@ class SynceeResponseMapper:
                 "return_policy_available": get_path(product, sm.return_policy_available),
                 "contact_available": get_path(product, sm.contact_available),
                 "active": get_path(product, sm.active),
-            },
+            }
+        return {
+            "id": product_id,
+            "name": get_path(product, pm.name),
+            "url": url,
+            "sku": get_path(product, pm.sku),
+            "brand": get_path(product, pm.brand),
+            "category": get_path(product, pm.category),
+            "subcategory": get_path(product, pm.subcategory),
+            "description": get_path(product, pm.description),
+            "currency": get_path(product, pm.currency) or pm.currency_default,
+            "price": get_path(product, pm.price),
+            "default_currency_price": get_path(product, pm.default_currency_price),
+            "suggested_retail_price": get_path(product, pm.suggested_retail_price),
+            "shipping_cost": get_path(product, pm.shipping_cost),
+            "shipping_min_days": get_path(product, pm.shipping_min_days),
+            "shipping_max_days": get_path(product, pm.shipping_max_days),
+            "shipping_zones": get_path(product, pm.shipping_zones),
+            "stock_status": get_path(product, pm.stock_status),
+            "stock_quantity": get_path(product, pm.stock_quantity),
+            "images": images,
+            "main_image": get_path(product, pm.main_image),
+            "variants": get_path(product, pm.variants, default=[]) or [],
+            "ships_from": get_path(product, pm.ships_from),
+            "added_at": get_path(product, pm.added_at),
+            "updated_at": get_path(product, pm.updated_at),
+            "active": get_path(product, pm.active),
+            "supplier": supplier,
         }

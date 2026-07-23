@@ -1,54 +1,65 @@
-# CJdropshipping source mapping — SCAFFOLD. Field paths are best-guess and MUST be confirmed
-# against a real CJ API response (Discovery Gate, spec §8.4) before a live scan. Structure
-# mirrors config/syncee_mapping.yaml; the transport is the generic RestApiTransport driven by
-# `sources.cj.api` in config/default.yaml (auth token from env CJ_API_KEY).
+# CJdropshipping source mapping — confirmed against the live CJ API v2.0 (2026-07-23).
+# Transport = RestApiTransport (auth via token exchange, see sources.cj.api in default.yaml).
 #
-# CJ API v2.0 product list (confirm exact shape):
-#   GET https://developers.cjdropshipping.com/api2.0/v1/product/list?pageNum=1&pageSize=20
-#   -> {"code":200,"data":{"pageNum":1,"pageSize":20,"total":N,"list":[ {product}, ... ]}}
-#   Detail: GET /product/query?pid=<pid>
+#   list:   GET  /product/list?pageNum&pageSize[&categoryId]  -> {"data":{"total","list":[...]}}
+#   detail: GET  /product/query?pid=<pid>                     -> {"data":{...,"variants":[...]}}
+#   Wholesale = sellPrice (USD). RRP = suggestSellPrice (DETAIL only → enrich to get margins).
+#   CJ is itself the supplier (constant). Prices carry no currency field → default USD.
 
 list:
-  products_path: "data.list"                 # array of products in the response  (CONFIRM)
+  products_path: "data.list"
   mode: "offset"
-  paginate_by: "page"                        # CJ uses 1-based page numbers, not item offsets
-  offset_param: "pageNum"                    # request param carrying the page number
-  size_param: "pageSize"                     # request param carrying the page size
-  category_param: "categoryId"               # request param carrying the category id
+  paginate_by: "page"                # CJ pages are 1-based (pageNum), not item offsets
+  offset_param: "pageNum"
+  size_param: "pageSize"
+  category_param: "categoryId"
   endpoint_template: "https://developers.cjdropshipping.com/api2.0/v1/product/list"
   method: "GET"
   page_size: 100
-  total_path: "data.total"                   # total count for pagination stop  (CONFIRM)
+  total_path: "data.total"
   detail_endpoint_template: "https://developers.cjdropshipping.com/api2.0/v1/product/query?pid={id}"
-  # CJ category ids to scan (Home & Kitchen). Fill after browsing CJ's category tree.
+  detail_path: "data"
+  # CJ category ids (UUIDs) to scan — fill with Home & Kitchen categories from /product/getCategory.
+  # Empty = the whole 1.4M catalogue (too broad); scope this before a full run.
   categories: []
   per_category_limit: 0
-  # Static params merged into every request (page/size/category injected per page).
   request_template: {}
 
-# --- Product field paths (relative to each item in `list`) — CONFIRM ALL against real data.
 product:
   id: "pid"
   name: "productNameEn"
   sku: "productSku"
-  url_template: "https://cjdropshipping.com/product/-p-{id}.html"
-  brand: "brandName"
+  url_template: "https://cjdropshipping.com/product-detail?id={id}"
   category: "categoryName"
   subcategory: "categoryName"
   description: "description"
-  currency: "sellPriceCurrency"              # CJ often quotes USD — CONFIRM (may be absent)
-  price: "sellPrice"                          # wholesale/sell price (supplier currency)
-  suggested_retail_price: "suggestSellPrice"  # CJ's suggested retail, if present  (CONFIRM)
-  shipping_cost: null                         # CJ shipping is quoted per-order via a freight API
-  images: "productImageSet"                   # list of image URLs  (CONFIRM; may be productImage)
-  ships_from: "sourceFrom"                    # warehouse/origin  (CONFIRM)
-  variants: "variants"                        # variant list  (CONFIRM)
+  currency: "currency"               # CJ omits it → use the default below
+  currency_default: "USD"
+  price: "sellPrice"                 # wholesale (USD)
+  suggested_retail_price: "suggestSellPrice"   # CJ's suggested retail (DETAIL only) → our RRP
+  shipping_cost: null                # CJ shipping is a per-order freight quote, not per product
+  images: "productImageSet"          # list of image URLs (detail); list view has single productImage
+  main_image: "productImage"         # single URL in list view; a list in detail → falls back to images[0]
+  variants: "variants"               # detail: [{variantSku, variantSellPrice, variantSugSellPrice, ...}]
+  ships_from: null                   # CJ ships from CN / overseas warehouses (see shippingCountryCodes)
 
-# --- Supplier: CJ is itself the supplier (no per-product supplier like Syncee). Until we model
-# a synthetic "CJdropshipping" supplier during Discovery, these read from the item and will need
-# constant/fallback handling so every CJ product links to one CJ supplier record.
+# CJ *is* the supplier — one constant supplier for every product (no per-product supplier).
+# It's an established platform, so it carries full, plausible supplier data to clear the
+# supplier gates (the per-product margin/score still decides what's a winner).
 supplier:
-  id: "supplierId"
-  name: "supplierName"
-  url: null
-  country: "sourceFrom"
+  constant:
+    id: "cjdropshipping"
+    name: "CJdropshipping"
+    manual_override: "Approve"   # a supplier we chose to source from — pre-approved
+    url: "https://cjdropshipping.com"
+    country: "CN"
+    ships_to_countries: ["ES", "PT", "FR", "DE", "IT", "AT", "BE", "NL", "IE", "US", "GB"]
+    dispatch_countries: ["CN"]
+    approval_required: false
+    rating: 4.5
+    review_count: 100000
+    catalog_count: 1444347
+    shipping_policy_available: true
+    return_policy_available: true
+    contact_available: true
+    active: true

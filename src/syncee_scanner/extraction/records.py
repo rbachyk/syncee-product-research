@@ -82,6 +82,8 @@ def normalize_supplier(raw: dict[str, Any]) -> dict[str, Any]:
         "contact_information_available": _presence_bool(raw.get("contact_available")),
         "active": nz.normalize_bool(raw.get("active")) if raw.get("active") is not None else True,
     }
+    if raw.get("manual_override"):  # single-source platforms can pre-approve themselves
+        record["manual_override"] = raw["manual_override"]
     record["data_completeness_pct"] = _data_completeness(
         record, _SUPPLIER_COMPLETENESS_FIELDS
     )

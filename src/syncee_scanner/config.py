@@ -76,8 +76,16 @@ class RestApiConfig(BaseModel):
 
     base_url: str = ""
     auth_header: str | None = None   # header carrying the token, e.g. "CJ-Access-Token"
-    auth_env: str | None = None      # env var the token is read from (never hard-coded)
+    auth_env: str | None = None      # env var with the token/password (never hard-coded)
     extra_headers: dict[str, str] = Field(default_factory=dict)
+    min_interval_seconds: float = 0  # throttle between requests (CJ QPS limit = 1/s)
+    # Optional token exchange (CJ: POST email+key -> short-lived access token). When set, the
+    # transport mints/caches the token instead of using auth_env directly.
+    auth_url: str | None = None          # token-exchange endpoint
+    auth_email_env: str | None = None    # env var with the account email (exchange body)
+    token_path: str = "data.accessToken"  # dotted path to the token in the exchange response
+    token_cache: str | None = None       # file to cache the token+expiry (avoids re-minting)
+    token_ttl_hours: float = 240         # how long to trust a minted token before re-exchanging
 
 
 class SourceConfig(BaseModel):

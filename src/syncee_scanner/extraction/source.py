@@ -186,7 +186,10 @@ class SynceeSource:
         page_number = 0
         for cat_index in range(start_cat, len(categories)):
             category = categories[cat_index]
-            pos = start_offset if cat_index == start_cat else first_pos
+            # Resume from the cursor's position for the start category; otherwise begin at
+            # first_pos (1-based page, or offset 0).
+            resuming = cat_index == start_cat and start_cursor is not None
+            pos = start_offset if resuming else first_pos
             taken_in_cat = 0
             while page_number < self.max_pages:
                 page_number += 1
