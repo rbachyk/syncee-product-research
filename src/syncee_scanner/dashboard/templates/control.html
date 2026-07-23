@@ -140,17 +140,21 @@
         </select>
       </label>
       <label class="f">Target margin %
-        <input name="target_margin" type="number" step="1" min="0" max="95" value="{{ pricing.target_margin }}" style="width:90px">
+        <input name="target_margin" type="number" step="1" min="0" max="95" value="{{ pricing.target_margin }}" style="width:80px" title="used in target_margin mode">
+      </label>
+      <label class="f">Markup ×
+        <input name="markup" type="number" step="0.05" min="1" value="{{ pricing.markup }}" style="width:80px" title="used in markup mode (e.g. 1.55 = cost×1.55)">
       </label>
       <label class="f">Min margin %
-        <input name="min_margin" type="number" step="1" min="0" max="95" value="{{ pricing.min_margin }}" style="width:90px">
+        <input name="min_margin" type="number" step="1" min="0" max="95" value="{{ pricing.min_margin }}" style="width:80px">
       </label>
       <button type="submit" class="g" {{ 'disabled' if active }}>Score products</button>
     </form>
     <p class="muted" style="margin:8px 0 0; font-size:12px">
-      <b>rrp</b>: sell at Syncee's suggested price (reject if under min margin). ·
-      <b>target_margin</b>: price = cost ÷ (1 − fees − target margin), i.e. cost + your desired margin; see how far each lands from market on the product card. ·
-      <b>markup</b>: price = cost × multiple.
+      <b>rrp</b>: sell at Syncee's suggested price (reject under min margin). ·
+      <b>target_margin</b> (uses <i>Target margin %</i>): price = cost ÷ (1 − fees − margin). ·
+      <b>markup</b> (uses <i>Markup ×</i>): price = cost × multiple, e.g. 1.55 = cost×1.55.
+      Each field only applies to its mode; the RRP delta on the product card shows how far the price lands from market.
     </p>
   </div>
 

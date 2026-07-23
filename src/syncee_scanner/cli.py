@@ -591,6 +591,9 @@ def cmd_score_products(
     target_margin: float | None = typer.Option(
         None, "--target-margin", help="Override target gross margin %% (target_margin mode)."
     ),
+    markup: float | None = typer.Option(
+        None, "--markup", help="Override markup multiple (markup mode), e.g. 1.55 = cost×1.55."
+    ),
     min_margin: float | None = typer.Option(
         None, "--min-margin", help="Override minimum margin %% to keep a product."
     ),
@@ -608,11 +611,13 @@ def cmd_score_products(
         cfg.margin.pricing_mode = pricing_mode
     if target_margin is not None:
         cfg.margin.target_margin_pct = target_margin
+    if markup is not None:
+        cfg.margin.markup_multiple = markup
     if min_margin is not None:
         cfg.margin.minimum_margin_pct = min_margin
     typer.echo(
         f"Pricing: {cfg.margin.pricing_mode} | target {cfg.margin.target_margin_pct}% | "
-        f"min {cfg.margin.minimum_margin_pct}%"
+        f"markup ×{cfg.margin.markup_multiple} | min {cfg.margin.minimum_margin_pct}%"
     )
     _activate_fx(cfg)  # convert supplier prices to EUR with today's rates before margin
     from .scoring.service import score_products

@@ -285,8 +285,8 @@ def enrich_argv(
 
 
 def score_argv(
-    target: str, *, pricing_mode: str | None = None,
-    target_margin: float | None = None, min_margin: float | None = None,
+    target: str, *, pricing_mode: str | None = None, target_margin: float | None = None,
+    markup: float | None = None, min_margin: float | None = None,
 ) -> list[str] | None:
     """`score suppliers` or `score products` (+ optional pricing overrides for re-scoring)."""
     if target not in ("suppliers", "products"):
@@ -297,6 +297,8 @@ def score_argv(
             argv += ["--pricing-mode", pricing_mode]
         if target_margin is not None:
             argv += ["--target-margin", str(target_margin)]
+        if markup is not None:
+            argv += ["--markup", str(markup)]
         if min_margin is not None:
             argv += ["--min-margin", str(min_margin)]
     return argv

@@ -71,7 +71,7 @@
       <div class="price">
         <span class="big">€{{ p.get('Proposed Retail Price') }}</span>
         <span class="pmeta">final price · margin {{ p.get('Estimated Margin %') or '?' }}%
-        {% if p.get('Suggested Retail Price') %}· RRP €{{ p.get('Suggested Retail Price') }}
+        {% if p.get('Market Price (EUR)') %}· RRP €{{ p.get('Market Price (EUR)') }}
           {% set d = p.get('Price vs RRP %') %}
           {% if d is not none %}<span class="{{ 'over' if d > 0 else 'under' }}">({{ '+' if d > 0 }}{{ d }}% vs market)</span>{% endif %}
         {% endif %}</span>

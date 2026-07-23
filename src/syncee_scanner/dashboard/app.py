@@ -281,9 +281,10 @@ def bulk_review(request: Request, action: str = Form(...), pid: list[int] = _PID
 _DETAIL_SECTIONS = [
     ("Pricing & margin", [
         ("Final price (EUR)", "Proposed Retail Price"),
-        ("Syncee RRP (market)", "Suggested Retail Price"),
+        ("Market price / RRP (EUR)", "Market Price (EUR)"),
         ("Price vs RRP", "Price vs RRP %"),
-        ("Supplier price", "Supplier Price"), ("Currency", "Currency"),
+        ("Supplier price (source ccy)", "Supplier Price"), ("Currency", "Currency"),
+        ("Syncee RRP (source ccy)", "Suggested Retail Price"),
         ("Shipping cost", "Shipping Cost"), ("Shipping cost known", "Shipping Cost Known"),
         ("Landed cost (EUR)", "Estimated Landed Cost"),
         ("Margin amount (EUR)", "Estimated Margin Amount"), ("Margin %", "Estimated Margin %"),
@@ -415,7 +416,7 @@ def control(request: Request):
 
     m = load_config().margin
     pricing = {"mode": m.pricing_mode, "target_margin": m.target_margin_pct,
-               "min_margin": m.minimum_margin_pct,
+               "markup": m.markup_multiple, "min_margin": m.minimum_margin_pct,
                "modes": ["rrp", "target_margin", "markup"]}
     return _TEMPLATES.TemplateResponse(request, "control.html", {
         "stats": _stats(), "active": jobs.active_job(), "recent": jobs.recent_jobs(),
@@ -499,16 +500,17 @@ def _num(v: str) -> float | None:
 
 @app.post("/jobs/score")
 def start_score(target: str = Form(...), pricing_mode: str = Form(""),
-                target_margin: str = Form(""), min_margin: str = Form("")):
+                target_margin: str = Form(""), markup: str = Form(""), min_margin: str = Form("")):
     """Score suppliers/products, with optional pricing overrides for a re-score."""
     argv = jobs.score_argv(
         target, pricing_mode=pricing_mode.strip() or None,
-        target_margin=_num(target_margin), min_margin=_num(min_margin),
+        target_margin=_num(target_margin), markup=_num(markup), min_margin=_num(min_margin),
     )
     if argv is None:
         return RedirectResponse("/control?error=Unknown+score+target", status_code=303)
     params = {"target": target, "pricing_mode": pricing_mode.strip(),
-              "target_margin": _num(target_margin), "min_margin": _num(min_margin)}
+              "target_margin": _num(target_margin), "markup": _num(markup),
+              "min_margin": _num(min_margin)}
     _, err = jobs.start_job(f"score-{target}", argv, params)
     return RedirectResponse(f"/control?error={err}" if err else "/control", status_code=303)
 
