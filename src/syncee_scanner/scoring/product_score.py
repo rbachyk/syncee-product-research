@@ -53,9 +53,14 @@ def _problem_solved(product: dict) -> float:
 
 
 def _margin_potential(margin: MarginResult, config: AppConfig) -> float:
-    # In target-margin pricing every product hits target, so rank by how competitive the
-    # target-margin price is vs Syncee's RRP (>=1 == at/below market -> full score).
-    if margin.competitiveness is not None:
+    """0..1 desirability from margin.
+
+    In target-margin pricing every product hits the same target margin, so competitiveness
+    vs RRP is the differentiator. Otherwise (rrp/markup pricing) rank by the ACTUAL gross
+    margin at the sale price — a thin or negative margin scores near 0, so loss-makers can't
+    ride other criteria to the top of the list.
+    """
+    if config.margin.pricing_mode == "target_margin" and margin.competitiveness is not None:
         return _clamp01(margin.competitiveness)
     if margin.margin_pct is None:
         return 0.0
